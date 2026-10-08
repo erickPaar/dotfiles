@@ -1,0 +1,63 @@
+# Get editor completions based on the config schema
+"$schema" = 'https://starship.rs/config-schema.json'
+
+# Inserts a blank line between shell prompts
+add_newline = true
+
+command_timeout = 1000          # ms — survives slower git on large repos
+scan_timeout = 30
+
+format = """
+$directory\
+$git_branch\
+$git_status\
+$kotlin\
+$java\
+$nodejs
+$character"""
+
+# Push duration + time to the right edge
+right_format = """$cmd_duration $time"""
+
+[character]
+success_symbol = '[➜](bold green)'
+error_symbol   = '[✗](bold red)'
+
+[directory]
+truncation_length = 3
+truncate_to_repo = true
+home_symbol = '🏡'              # replaces the custom.home echo hack
+
+[git_branch]
+symbol = ' '
+
+[git_status]                    # re-enabled — the useful one
+style = 'bold yellow'
+
+[cmd_duration]
+min_time = 2000                 # only show if > 2s
+format = 'took [$duration](bold yellow) '
+
+[time]
+disabled = false
+format = '[$time](dimmed white)'
+time_format = '%H:%M'
+
+[kotlin]                        # your main language — re-enabled
+symbol = '🅺 '
+
+[java]
+symbol = '☕ '
+
+# Keep these off
+[package]
+disabled = true
+
+[git_commit]
+disabled = true
+
+[aws]
+disabled = true
+
+[python]
+disabled = true

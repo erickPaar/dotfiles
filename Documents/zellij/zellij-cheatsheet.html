@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zellij Cheatsheet</title>
+<style>
+  :root {
+    --bg: #1a1b26;
+    --bg-alt: #24283b;
+    --bg-dark: #16161e;
+    --fg: #c0caf5;
+    --fg-alt: #565f89;
+    --disabled: #414868;
+    --blue: #7aa2f7;
+    --cyan: #7dcfff;
+    --green: #9ece6a;
+    --magenta: #bb9af7;
+    --red: #f7768e;
+    --yellow: #e0af68;
+    --orange: #ff9e64;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: 'FiraCode Nerd Font', 'Fira Code', 'Consolas', monospace;
+    font-size: 14px;
+    padding: 24px;
+  }
+
+  h1 {
+    text-align: center;
+    color: var(--blue);
+    font-size: 28px;
+    margin-bottom: 8px;
+  }
+
+  .subtitle {
+    text-align: center;
+    color: var(--fg-alt);
+    margin-bottom: 24px;
+    font-size: 13px;
+  }
+
+  .tabs { max-width: 1400px; margin: 0 auto; }
+  .tabs input[type="radio"] { display: none; }
+
+  .tab-bar {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 24px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--bg);
+    padding: 8px 0;
+    border-bottom: 1px solid #2f3549;
+    flex-wrap: wrap;
+  }
+
+  .tab-bar label {
+    padding: 10px 24px;
+    border-radius: 8px 8px 0 0;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+    color: var(--fg-alt);
+    background: var(--bg-dark);
+    border: 1px solid transparent;
+    border-bottom: none;
+    transition: all 0.2s ease;
+    user-select: none;
+  }
+
+  .tab-bar label:hover { color: var(--fg); background: var(--bg-alt); }
+
+  .tab-content { display: none; }
+
+  #tab-modes:checked ~ .tab-bar label[for="tab-modes"],
+  #tab-cli:checked ~ .tab-bar label[for="tab-cli"],
+  #tab-config:checked ~ .tab-bar label[for="tab-config"],
+  #tab-layouts:checked ~ .tab-bar label[for="tab-layouts"],
+  #tab-sessions:checked ~ .tab-bar label[for="tab-sessions"] {
+    color: var(--bg);
+    background: var(--blue);
+    border-color: var(--blue);
+  }
+
+  #tab-modes:checked ~ .tab-content.modes,
+  #tab-cli:checked ~ .tab-content.cli,
+  #tab-config:checked ~ .tab-content.config,
+  #tab-layouts:checked ~ .tab-content.layouts,
+  #tab-sessions:checked ~ .tab-content.sessions {
+    display: block;
+    animation: fadeIn 0.2s ease;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+    gap: 20px;
+  }
+
+  .card {
+    background: var(--bg-alt);
+    border-radius: 10px;
+    padding: 20px;
+    border: 1px solid #2f3549;
+  }
+
+  .card h2 {
+    font-size: 15px;
+    margin-bottom: 14px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #2f3549;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .h-blue h2 { color: var(--blue); }
+  .h-cyan h2 { color: var(--cyan); }
+  .h-green h2 { color: var(--green); }
+  .h-magenta h2 { color: var(--magenta); }
+  .h-yellow h2 { color: var(--yellow); }
+  .h-red h2 { color: var(--red); }
+  .h-orange h2 { color: var(--orange); }
+
+  table { width: 100%; border-collapse: collapse; }
+  tr { border-bottom: 1px solid #1a1b26; }
+  tr:last-child { border-bottom: none; }
+  td { padding: 6px 0; vertical-align: top; }
+  td:first-child { white-space: nowrap; padding-right: 16px; width: 50%; }
+
+  kbd {
+    background: var(--bg);
+    color: var(--blue);
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 12px;
+    border: 1px solid #2f3549;
+    font-family: inherit;
+  }
+
+  .modkey { color: var(--magenta); }
+  .desc { color: var(--fg-alt); font-size: 13px; }
+
+  .note {
+    margin-top: 12px;
+    padding: 10px 14px;
+    background: var(--bg);
+    border-radius: 6px;
+    border-left: 3px solid var(--blue);
+    font-size: 12px;
+    color: var(--fg-alt);
+    line-height: 1.6;
+  }
+
+  .note strong { color: var(--fg); }
+  .note.warn { border-left-color: var(--yellow); }
+  .note.warn strong { color: var(--yellow); }
+  .note.crit { border-left-color: var(--red); }
+  .note.crit strong { color: var(--red); }
+
+  pre, code.block {
+    display: block;
+    background: var(--bg);
+    padding: 12px 14px;
+    border-radius: 6px;
+    border: 1px solid #2f3549;
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--fg);
+    overflow-x: auto;
+    margin: 10px 0;
+    font-family: inherit;
+  }
+  pre .kw, code.block .kw { color: var(--magenta); }
+  pre .str, code.block .str { color: var(--green); }
+  pre .num, code.block .num { color: var(--orange); }
+  pre .com, code.block .com { color: var(--fg-alt); font-style: italic; }
+  pre .id, code.block .id { color: var(--cyan); }
+
+  code:not(.block) {
+    background: var(--bg);
+    color: var(--cyan);
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 12px;
+    border: 1px solid #2f3549;
+    font-family: inherit;
+  }
+
+  .mode-pill {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-right: 6px;
+  }
+  .mode-pill.normal   { background: rgba(122,162,247,0.18); color: var(--blue); }
+  .mode-pill.pane     { background: rgba(187,154,247,0.18); color: var(--magenta); }
+  .mode-pill.tab      { background: rgba(125,207,255,0.18); color: var(--cyan); }
+  .mode-pill.resize   { background: rgba(224,175,104,0.18); color: var(--yellow); }
+  .mode-pill.scroll   { background: rgba(158,206,106,0.18); color: var(--green); }
+  .mode-pill.session  { background: rgba(247,118,142,0.18); color: var(--red); }
+  .mode-pill.move     { background: rgba(255,158,100,0.18); color: var(--orange); }
+  .mode-pill.locked   { background: rgba(247,118,142,0.18); color: var(--red); }
+  .mode-pill.search   { background: rgba(158,206,106,0.18); color: var(--green); }
+  .mode-pill.tmux     { background: rgba(187,154,247,0.18); color: var(--magenta); }
+</style>
+</head>
+<body>
+
+<h1>Zellij Cheatsheet</h1>
+<p class="subtitle">Every keybind &middot; every CLI flag &middot; every layout primitive</p>
+
+<div class="tabs">
+  <input type="radio" name="t" id="tab-modes" checked>
+  <input type="radio" name="t" id="tab-cli">
+  <input type="radio" name="t" id="tab-config">
+  <input type="radio" name="t" id="tab-layouts">
+  <input type="radio" name="t" id="tab-sessions">
+
+  <div class="tab-bar">
+    <label for="tab-modes">Modes &amp; Keybinds</label>
+    <label for="tab-cli">CLI</label>
+    <label for="tab-config">Config</label>
+    <label for="tab-layouts">Layouts</label>
+    <label for="tab-sessions">Sessions</label>
+  </div>
+
+  <!-- ──────────────────────────── MODES ──────────────────────────── -->
+  <div class="tab-content modes">
+    <div class="note"><strong>How modes work:</strong> Zellij is <em>modal</em>. From <span class="mode-pill normal">NORMAL</span> press a "switch" key (<kbd>Ctrl+P</kbd>, <kbd>Ctrl+T</kbd>, …) to enter another mode. In that mode, single-letter keys do things. Press <kbd>Enter</kbd> or <kbd>Esc</kbd> to return to NORMAL. The status bar always shows which mode you're in.</div>
+
+    <div class="grid">
+
+      <div class="card h-blue">
+        <h2><span class="mode-pill normal">NORMAL</span> mode entry keys</h2>
+        <table>
+          <tr><td><kbd>Alt+p</kbd></td><td class="desc">enter PANE mode <em>(custom &mdash; Ctrl+P freed for nvim)</em></td></tr>
+          <tr><td><kbd>Ctrl+T</kbd></td><td class="desc">enter TAB mode</td></tr>
+          <tr><td><kbd>Ctrl+N</kbd></td><td class="desc">enter RESIZE mode</td></tr>
+          <tr><td><kbd>Ctrl+S</kbd></td><td class="desc">enter SCROLL mode</td></tr>
+          <tr><td><kbd>Alt+o</kbd></td><td class="desc">enter SESSION mode <em>(custom &mdash; Ctrl+O freed for nvim jumplist)</em></td></tr>
+          <tr><td><kbd>Alt+h</kbd> / <kbd>Alt+l</kbd></td><td class="desc">previous / next zellij tab <em>(custom &mdash; overrides default MoveFocusOrTab)</em></td></tr>
+          <tr><td><kbd>Alt+&larr;</kbd> / <kbd>Alt+&rarr;</kbd></td><td class="desc">MoveFocusOrTab &mdash; pane focus, crosses tab edge</td></tr>
+          <tr><td><kbd>Ctrl+G</kbd></td><td class="desc">enter LOCKED — all keys passthrough</td></tr>
+          <tr><td><kbd>Ctrl+Q</kbd></td><td class="desc">quit zellij &amp; <strong>kill</strong> session</td></tr>
+        </table>
+        <div class="note"><strong>Custom in your config:</strong> Ctrl+P and Ctrl+O moved to Alt+p / Alt+o so nvim keeps <code>&lt;C-p&gt;</code> and <code>&lt;C-o&gt;</code>. Zellij tabs on Alt+h / Alt+l so Ctrl+H/L pass through to nvim window-direction &amp; bash. Wezterm tabs moved to Ctrl+Alt+H / Ctrl+Alt+L.</div>
+        <div class="note warn"><strong>Heads-up:</strong> <kbd>Ctrl+Q</kbd> kills the session. To leave it running use <span class="mode-pill session">SESSION</span> &rarr; <kbd>d</kbd>etach.</div>
+      </div>
+
+      <div class="card h-magenta">
+        <h2><span class="mode-pill pane">PANE</span> &nbsp;(Alt+p &mdash; was Ctrl+P)</h2>
+        <table>
+          <tr><td><kbd>n</kbd></td><td class="desc">new pane (auto direction)</td></tr>
+          <tr><td><kbd>d</kbd></td><td class="desc">split <strong>d</strong>own (horizontal)</td></tr>
+          <tr><td><kbd>r</kbd></td><td class="desc">split <strong>r</strong>ight (vertical)</td></tr>
+          <tr><td><kbd>x</kbd></td><td class="desc">close focused pane</td></tr>
+          <tr><td><kbd>h j k l</kbd> / arrows</td><td class="desc">move focus</td></tr>
+          <tr><td><kbd>p</kbd></td><td class="desc">cycle focus through panes</td></tr>
+          <tr><td><kbd>f</kbd></td><td class="desc">fullscreen toggle (zoom)</td></tr>
+          <tr><td><kbd>z</kbd></td><td class="desc">toggle pane frames</td></tr>
+          <tr><td><kbd>w</kbd></td><td class="desc">toggle floating panes</td></tr>
+          <tr><td><kbd>e</kbd></td><td class="desc">toggle <strong>e</strong>mbed ↔ float for focused pane</td></tr>
+          <tr><td><kbd>c</kbd></td><td class="desc">rename pane (Enter to commit)</td></tr>
+          <tr><td><kbd>i</kbd></td><td class="desc">toggle pinned (floating pane stays on top of all tabs)</td></tr>
+        </table>
+      </div>
+
+      <div class="card h-cyan">
+        <h2><span class="mode-pill tab">TAB</span> &nbsp;(Ctrl+T)</h2>
+        <table>
+          <tr><td><kbd>n</kbd></td><td class="desc">new tab</td></tr>
+          <tr><td><kbd>x</kbd></td><td class="desc">close tab</td></tr>
+          <tr><td><kbd>r</kbd></td><td class="desc">rename tab</td></tr>
+          <tr><td><kbd>h l</kbd> / arrows</td><td class="desc">previous / next tab</td></tr>
+          <tr><td><kbd>1</kbd>…<kbd>9</kbd></td><td class="desc">jump to tab N</td></tr>
+          <tr><td><kbd>s</kbd></td><td class="desc">toggle sync (input broadcast to all panes in tab)</td></tr>
+          <tr><td><kbd>b</kbd></td><td class="desc">break pane out into its own tab</td></tr>
+          <tr><td><kbd>]</kbd> / <kbd>[</kbd></td><td class="desc">move pane to next / previous tab</td></tr>
+          <tr><td><kbd>Tab</kbd></td><td class="desc">jump to most-recent tab</td></tr>
+        </table>
+      </div>
+
+      <div class="card h-yellow">
+        <h2><span class="mode-pill resize">RESIZE</span> &nbsp;(Ctrl+N)</h2>
+        <table>
+          <tr><td><kbd>h j k l</kbd> / arrows</td><td class="desc">shrink toward / grow away from that edge</td></tr>
+          <tr><td><kbd>+</kbd> / <kbd>-</kbd></td><td class="desc">grow / shrink uniformly</td></tr>
+          <tr><td><kbd>=</kbd></td><td class="desc">reset to even split</td></tr>
+        </table>
+        <div class="note">Resize is "press repeatedly to nudge". The mode stays until you press <kbd>Enter</kbd>.</div>
+      </div>
+
+      <div class="card h-green">
+        <h2><span class="mode-pill scroll">SCROLL</span> &nbsp;(Ctrl+S)</h2>
+        <table>
+          <tr><td><kbd>k</kbd> / <kbd>j</kbd></td><td class="desc">up / down one line</td></tr>
+          <tr><td><kbd>Ctrl+u</kbd> / <kbd>Ctrl+d</kbd></td><td class="desc">half-page up / down</td></tr>
+          <tr><td><kbd>PgUp</kbd> / <kbd>PgDn</kbd></td><td class="desc">full page up / down</td></tr>
+          <tr><td><kbd>e</kbd></td><td class="desc">open scrollback in <code>$EDITOR</code></td></tr>
+          <tr><td><kbd>/</kbd></td><td class="desc">enter SEARCH submode</td></tr>
+          <tr><td><kbd>s</kbd></td><td class="desc">enter SEARCH submode (alt)</td></tr>
+        </table>
+
+        <h2 style="margin-top:18px;"><span class="mode-pill search">SEARCH</span> submode</h2>
+        <table>
+          <tr><td>type then <kbd>Enter</kbd></td><td class="desc">search forward</td></tr>
+          <tr><td><kbd>n</kbd> / <kbd>p</kbd></td><td class="desc">next / previous match</td></tr>
+          <tr><td><kbd>c</kbd></td><td class="desc">toggle case sensitivity</td></tr>
+          <tr><td><kbd>w</kbd></td><td class="desc">toggle whole-word</td></tr>
+          <tr><td><kbd>o</kbd></td><td class="desc">toggle wrap-around</td></tr>
+        </table>
+      </div>
+
+      <div class="card h-red">
+        <h2><span class="mode-pill session">SESSION</span> &nbsp;(Alt+o &mdash; was Ctrl+O)</h2>
+        <table>
+          <tr><td><kbd>d</kbd></td><td class="desc">detach (session keeps running)</td></tr>
+          <tr><td><kbd>w</kbd></td><td class="desc">session manager — list / switch / resurrect</td></tr>
+          <tr><td><kbd>c</kbd></td><td class="desc">configuration browser</td></tr>
+          <tr><td><kbd>p</kbd></td><td class="desc">plugin manager</td></tr>
+          <tr><td><kbd>a</kbd></td><td class="desc">about</td></tr>
+        </table>
+        <div class="note"><strong>Detach is the magic.</strong> Hit <kbd>Alt+o</kbd> <kbd>d</kbd>, close wezterm, reopen, run <code>zellij attach NAME</code> — everything resumes.</div>
+      </div>
+
+      <div class="card h-orange">
+        <h2><span class="mode-pill move">MOVE</span> &nbsp;(Ctrl+H)</h2>
+        <table>
+          <tr><td><kbd>h j k l</kbd> / arrows</td><td class="desc">move focused pane in that direction</td></tr>
+          <tr><td><kbd>n</kbd></td><td class="desc">move pane to next position (snake order)</td></tr>
+          <tr><td><kbd>p</kbd></td><td class="desc">move pane to previous position</td></tr>
+          <tr><td><kbd>Tab</kbd></td><td class="desc">cycle pane positions</td></tr>
+        </table>
+      </div>
+
+      <div class="card h-red">
+        <h2><span class="mode-pill locked">LOCKED</span> &nbsp;(Ctrl+G)</h2>
+        <p class="desc">Every key is forwarded to the running program. Use this when you're inside <code>vim</code>, <code>htop</code>, <code>tig</code>, or anything that uses the same Ctrl-prefixed keys as zellij.</p>
+        <table style="margin-top:10px;">
+          <tr><td><kbd>Ctrl+G</kbd></td><td class="desc">unlock — return to NORMAL</td></tr>
+        </table>
+        <div class="note">Status bar shows a padlock icon while locked.</div>
+      </div>
+
+      <div class="card h-blue">
+        <h2>Pane shortcuts from NORMAL</h2>
+        <p class="desc" style="margin-bottom:10px;">Some pane keys don't need PANE mode — Alt-prefixed shortcuts work from NORMAL:</p>
+        <table>
+          <tr><td><kbd>Alt+n</kbd></td><td class="desc">new pane</td></tr>
+          <tr><td><kbd>Alt+h/j/k/l</kbd></td><td class="desc">move focus</td></tr>
+          <tr><td><kbd>Alt+[</kbd> / <kbd>Alt+]</kbd></td><td class="desc">previous / next pane (focus cycle)</td></tr>
+          <tr><td><kbd>Alt+f</kbd></td><td class="desc">toggle float</td></tr>
+          <tr><td><kbd>Alt+=</kbd> / <kbd>Alt+-</kbd></td><td class="desc">grow / shrink focused pane</td></tr>
+          <tr><td><kbd>Alt+i</kbd> / <kbd>Alt+o</kbd></td><td class="desc">move tab left / right</td></tr>
+        </table>
+        <div class="note warn"><strong>i3 collision:</strong> on Mod4 you're fine, but if you ever use Mod1 (Alt) in i3, Alt+letter shortcuts will conflict.</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ──────────────────────────── CLI ──────────────────────────── -->
+  <div class="tab-content cli">
+    <div class="grid">
+
+      <div class="card h-blue">
+        <h2>Start &amp; attach</h2>
+        <table>
+          <tr><td><code>zellij</code></td><td class="desc">start default session (or attach if one named <code>$(zellij list-sessions)</code> exists)</td></tr>
+          <tr><td><code>zellij -s NAME</code></td><td class="desc">start a named session</td></tr>
+          <tr><td><code>zellij attach NAME</code></td><td class="desc">attach to an existing session</td></tr>
+          <tr><td><code>zellij attach -c NAME</code></td><td class="desc">attach, <strong>create</strong> if missing</td></tr>
+          <tr><td><code>zellij attach -b NAME</code></td><td class="desc">attach in background (detaches first)</td></tr>
+          <tr><td><code>zellij attach --force NAME</code></td><td class="desc">attach even if already attached (steals)</td></tr>
+        </table>
+      </div>
+
+      <div class="card h-magenta">
+        <h2>Listing &amp; killing</h2>
+        <table>
+          <tr><td><code>zellij ls</code></td><td class="desc">list active &amp; resurrectable sessions</td></tr>
+          <tr><td><code>zellij list-sessions</code></td><td class="desc">same, long form</td></tr>
+          <tr><td><code>zellij kill-session NAME</code></td><td class="desc">stop a specific session</td></tr>
+          <tr><td><code>zellij kill-all-sessions</code></td><td class="desc">stop everything (prompts)</td></tr>
+          <tr><td><code>zellij delete-session NAME</code></td><td class="desc">remove a serialized session from disk</td></tr>
+          <tr><td><code>zellij delete-all-sessions</code></td><td class="desc">wipe all serialized sessions</td></tr>
+        </table>
+      </div>
+
+      <div class="card h-green">
+        <h2>Layouts</h2>
+        <table>
+          <tr><td><code>zellij --layout NAME</code></td><td class="desc">start with a named layout from <code>~/.config/zellij/layouts/</code></td></tr>
+          <tr><td><code>zellij --layout ./path.kdl</code></td><td class="desc">layout from a path</td></tr>
+          <tr><td><code>zellij setup --dump-layout default</code></td><td class="desc">print built-in default layout</td></tr>
+          <tr><td><code>zellij setup --dump-layout compact</code></td><td class="desc">print built-in compact layout</td></tr>
+        </table>
+      </div>
+
+      <div class="card h-yellow">
+        <h2>Run / Edit (one-shot)</h2>
+        <table>
+          <tr><td><code>zellij run -- CMD ARGS</code></td><td class="desc">open new pane running CMD (uses attached session)</td></tr>
+          <tr><td><code>zellij run -d right -- CMD</code></td><td class="desc">open in a new right-split pane</td></tr>
+          <tr><td><code>zellij run -f -- CMD</code></td><td class="desc">open as a floating pane</td></tr>
+          <tr><td><code>zellij run -i -- CMD</code></td><td class="desc">close pane after CMD exits</td></tr>
+          <tr><td><code>zellij edit FILE</code></td><td class="desc">open FILE in <code>$EDITOR</code> as a new pane</td></tr>
+          <tr><td><code>zellij edit -f FILE</code></td><td class="desc">edit in a floating pane</td></tr>
+        </table>
+        <div class="note">Run these <em>from inside</em> a zellij session — they target the current session by default.</div>
+      </div>
+
+      <div class="card h-red">
+        <h2>Actions (scriptable)</h2>
+        <p class="desc" style="margin-bottom:10px;">Send any keybind action from outside — great for scripts, polybar, sxhkd, i3 binds.</p>
+        <table>
+          <tr><td><code>zellij action new-pane</code></td><td class="desc">split a new pane</td></tr>
+          <tr><td><code>zellij action new-pane -d right</code></td><td class="desc">new vertical split (right)</td></tr>
+          <tr><td><code>zellij action new-tab</code></td><td class="desc">new tab</td></tr>
+          <tr><td><code>zellij action go-to-tab 2</code></td><td class="desc">jump to tab 2</td></tr>
+          <tr><td><code>zellij action move-focus left|right|up|down</code></td><td class="desc">move focus</td></tr>
+          <tr><td><code>zellij action close-pane</code></td><td class="desc">close focused pane</td></tr>
+          <tr><td><code>zellij action toggle-pane-frames</code></td><td class="desc">show / hide pane borders</td></tr>
+          <tr><td><code>zellij action rename-tab "build"</code></td><td class="desc">rename current tab</td></tr>
+          <tr><td><code>zellij action write-chars "ls -la\n"</code></td><td class="desc">type into focused pane</td></tr>
+          <tr><td><code>zellij action dump-screen FILE</code></td><td class="desc">dump current pane contents</td></tr>
+        </table>
+      </div>
+
+      <div class="card h-cyan">
+        <h2>Setup &amp; introspection</h2>
+        <table>
+          <tr><td><code>zellij setup --check</code></td><td class="desc">validate config + show paths</td></tr>
+          <tr><td><code>zellij setup --dump-config</code></td><td class="desc">print full default config (KDL)</td></tr>
+          <tr><td><code>zellij setup --generate-completion bash</code></td><td class="desc">generate shell completion</td></tr>
+          <tr><td><code>zellij setup --generate-auto-start bash</code></td><td class="desc">snippet that auto-attaches on shell start</td></tr>
+          <tr><td><code>zellij options --simplified-ui true</code></td><td class="desc">launch with simplified UI (no nerd-font glyphs)</td></tr>
+          <tr><td><code>zellij --debug</code></td><td class="desc">log to <code>/tmp/zellij-*</code></td></tr>
+        </table>
+      </div>
+
+      <div class="card h-orange">
+        <h2>Convert from tmux/screen</h2>
+        <table>
+          <tr><td><code>zellij convert-config FILE</code></td><td class="desc">convert old YAML zellij config</td></tr>
+          <tr><td><code>zellij convert-layout FILE</code></td><td class="desc">convert old YAML layout</td></tr>
+          <tr><td><code>zellij convert-theme FILE</code></td><td class="desc">convert old YAML theme</td></tr>
+        </table>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ──────────────────────────── CONFIG ──────────────────────────── -->
+  <div class="tab-content config">
+    <div class="grid">
+
+      <div class="card h-blue">
+        <h2>Locations</h2>
+        <table>
+          <tr><td><code>~/.config/zellij/config.kdl</code></td><td class="desc">main config</td></tr>
+          <tr><td><code>~/.config/zellij/layouts/*.kdl</code></td><td class="desc">named layouts</td></tr>
+          <tr><td><code>~/.config/zellij/themes/*.kdl</code></td><td class="desc">user themes</td></tr>
+          <tr><td><code>~/.config/zellij/plugins/*.wasm</code></td><td class="desc">user plugins</td></tr>
+          <tr><td><code>~/.cache/zellij/</code></td><td class="desc">runtime cache</td></tr>
+          <tr><td><code>~/.local/share/zellij/</code></td><td class="desc">data: sessions, plugin store</td></tr>
+        </table>
+        <div class="note">Config reload is automatic — save the file and zellij picks it up.</div>
+      </div>
+
+      <div class="card h-magenta">
+        <h2>Top-level options</h2>
+        <pre><span class="kw">default_shell</span> <span class="str">"bash"</span>
+<span class="kw">default_layout</span> <span class="str">"compact"</span>
+<span class="kw">theme</span> <span class="str">"catppuccin-mocha"</span>
+<span class="kw">pane_frames</span> <span class="num">false</span>
+<span class="kw">simplified_ui</span> <span class="num">false</span>
+<span class="kw">mouse_mode</span> <span class="num">true</span>
+<span class="kw">on_force_close</span> <span class="str">"detach"</span>
+<span class="kw">copy_command</span> <span class="str">"xclip -selection clipboard"</span>
+<span class="kw">copy_on_select</span> <span class="num">false</span>
+<span class="kw">scrollback_lines_to_serialize</span> <span class="num">10000</span></pre>
+      </div>
+
+      <div class="card h-green">
+        <h2>Persistence</h2>
+        <pre><span class="kw">session_serialization</span> <span class="num">true</span>
+<span class="kw">pane_viewport_serialization</span> <span class="num">true</span>
+<span class="kw">serialize_pane_viewport</span> <span class="num">true</span>
+<span class="kw">scrollback_lines_to_serialize</span> <span class="num">10000</span></pre>
+        <div class="note"><strong>Effect:</strong> on detach, zellij saves the layout + scrollback to disk. Next <code>zellij attach</code> rebuilds them.</div>
+      </div>
+
+      <div class="card h-yellow">
+        <h2>Themes</h2>
+        <p class="desc" style="margin-bottom:10px;">Set <code>theme "NAME"</code>. Bundled: <code>default</code>, <code>dracula</code>, <code>gruvbox-dark</code>, <code>gruvbox-light</code>, <code>solarized-dark</code>, <code>tokyo-night</code>, <code>tokyo-night-storm</code>, <code>nightfox</code>, <code>catppuccin-mocha</code>, <code>catppuccin-frappe</code>, <code>catppuccin-macchiato</code>, <code>catppuccin-latte</code>, <code>everforest-dark</code>, <code>everforest-light</code> + several more.</p>
+        <pre><span class="kw">themes</span> {
+  <span class="id">tokyo-night-custom</span> {
+    <span class="kw">fg</span> <span class="num">192</span> <span class="num">202</span> <span class="num">245</span>
+    <span class="kw">bg</span> <span class="num">26</span> <span class="num">27</span> <span class="num">38</span>
+    <span class="kw">black</span> <span class="num">15</span> <span class="num">15</span> <span class="num">20</span>
+    <span class="kw">red</span> <span class="num">247</span> <span class="num">118</span> <span class="num">142</span>
+    <span class="com">// green, yellow, blue, magenta, cyan, white, orange</span>
+  }
+}</pre>
+      </div>
+
+      <div class="card h-red">
+        <h2>Keybind syntax (your config)</h2>
+        <pre><span class="kw">keybinds</span> {
+  <span class="kw">normal</span> {
+    <span class="com">// Free Ctrl+P / Ctrl+O for nvim, expose them on Alt instead.</span>
+    <span class="kw">unbind</span> <span class="str">"Ctrl p"</span>
+    <span class="kw">unbind</span> <span class="str">"Ctrl o"</span>
+    <span class="kw">bind</span> <span class="str">"Alt p"</span> { <span class="id">SwitchToMode</span> <span class="str">"Pane"</span>; }
+    <span class="kw">bind</span> <span class="str">"Alt o"</span> { <span class="id">SwitchToMode</span> <span class="str">"Session"</span>; }
+
+    <span class="com">// Tab nav on Alt+h/l so Ctrl+H/L stay free for nvim &amp; bash.</span>
+    <span class="kw">bind</span> <span class="str">"Alt h"</span> { <span class="id">GoToPreviousTab</span>; }
+    <span class="kw">bind</span> <span class="str">"Alt l"</span> { <span class="id">GoToNextTab</span>; }
+  }
+  <span class="kw">locked</span> {
+    <span class="kw">bind</span> <span class="str">"Ctrl g"</span> { <span class="id">SwitchToMode</span> <span class="str">"Normal"</span>; }
+  }
+}</pre>
+        <div class="note"><strong>Modes:</strong> <code>normal pane tab resize scroll search session move locked tmux</code>. <code>shared_except</code> and <code>shared_among</code> let you bind once across many. <code>unbind</code> removes a default before you replace it.</div>
+      </div>
+
+      <div class="card h-cyan">
+        <h2>Common actions for binds</h2>
+        <table>
+          <tr><td><code>SwitchToMode "Pane"</code></td><td class="desc">change mode</td></tr>
+          <tr><td><code>NewPane "Down"|"Right"</code></td><td class="desc">split</td></tr>
+          <tr><td><code>CloseFocus</code></td><td class="desc">close pane</td></tr>
+          <tr><td><code>MoveFocus "Left"</code></td><td class="desc">focus</td></tr>
+          <tr><td><code>Resize "Increase Left"</code></td><td class="desc">resize</td></tr>
+          <tr><td><code>NewTab</code> / <code>GoToTab 1</code></td><td class="desc">tabs</td></tr>
+          <tr><td><code>ScrollUp</code> / <code>HalfPageScrollDown</code></td><td class="desc">scroll</td></tr>
+          <tr><td><code>Detach</code> / <code>Quit</code></td><td class="desc">leave</td></tr>
+          <tr><td><code>Run { cmd "htop"; cwd "/"; }</code></td><td class="desc">spawn command</td></tr>
+          <tr><td><code>EditScrollback</code></td><td class="desc">open buffer in $EDITOR</td></tr>
+          <tr><td><code>TogglePaneFrames</code> / <code>ToggleFloatingPanes</code></td><td class="desc">UI</td></tr>
+          <tr><td><code>ToggleMouseMode</code></td><td class="desc">mouse on/off</td></tr>
+        </table>
+      </div>
+
+      <div class="card h-orange">
+        <h2>UI options</h2>
+        <pre><span class="kw">ui</span> {
+  <span class="kw">pane_frames</span> {
+    <span class="kw">rounded_corners</span> <span class="num">true</span>
+    <span class="kw">hide_session_name</span> <span class="num">false</span>
+  }
+}
+<span class="kw">show_startup_tips</span> <span class="num">false</span>
+<span class="kw">show_release_notes</span> <span class="num">false</span>
+<span class="kw">scroll_buffer_size</span> <span class="num">10000</span>
+<span class="kw">styled_underlines</span> <span class="num">true</span></pre>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ──────────────────────────── LAYOUTS ──────────────────────────── -->
+  <div class="tab-content layouts">
+    <div class="grid">
+
+      <div class="card h-blue">
+        <h2>What a layout is</h2>
+        <p class="desc">A KDL file describing tabs and panes for a session. Launch with <code>zellij --layout NAME</code> — zellij looks in <code>~/.config/zellij/layouts/NAME.kdl</code> then falls back to built-ins.</p>
+        <div class="note">A layout is consumed <strong>once</strong>, when the session is created. After that, edits don't change a running session.</div>
+      </div>
+
+      <div class="card h-magenta">
+        <h2>Minimal example</h2>
+        <pre><span class="kw">layout</span> {
+  <span class="kw">pane</span>
+}</pre>
+        <p class="desc">One tab, one pane, your default shell. That's the cheapest valid layout.</p>
+      </div>
+
+      <div class="card h-green">
+        <h2>Splits</h2>
+        <pre><span class="kw">layout</span> {
+  <span class="kw">pane</span> <span class="kw">split_direction</span>=<span class="str">"vertical"</span> {
+    <span class="kw">pane</span>
+    <span class="kw">pane</span> <span class="kw">split_direction</span>=<span class="str">"horizontal"</span> {
+      <span class="kw">pane</span>
+      <span class="kw">pane</span>
+    }
+  }
+}</pre>
+        <p class="desc"><code>split_direction</code> on a parent dictates how its children are arranged.</p>
+      </div>
+
+      <div class="card h-yellow">
+        <h2>Sizing</h2>
+        <pre><span class="kw">pane</span> <span class="kw">size</span>=<span class="str">"70%"</span>
+<span class="kw">pane</span> <span class="kw">size</span>=<span class="num">10</span>     <span class="com">// rows or columns</span>
+<span class="kw">pane</span>             <span class="com">// no size = "fill remaining"</span></pre>
+        <div class="note">Pixels / cells / percents are honored differently per direction. Leave panes unsized to fill.</div>
+      </div>
+
+      <div class="card h-cyan">
+        <h2>Panes that run things</h2>
+        <pre><span class="kw">pane</span> <span class="kw">command</span>=<span class="str">"htop"</span>
+<span class="kw">pane</span> <span class="kw">command</span>=<span class="str">"watch"</span> {
+  <span class="kw">args</span> <span class="str">"-n"</span> <span class="str">"1"</span> <span class="str">"date"</span>
+}
+<span class="kw">pane</span> <span class="kw">command</span>=<span class="str">"nvim"</span> <span class="kw">cwd</span>=<span class="str">"~/dev/myproj"</span> {
+  <span class="kw">args</span> <span class="str">"+15"</span> <span class="str">"src/main.rs"</span>
+}
+<span class="kw">pane</span> <span class="kw">edit</span>=<span class="str">"README.md"</span></pre>
+        <div class="note"><code>command</code> + <code>args</code> spawns a process. <code>edit</code> opens a file in <code>$EDITOR</code>. Both replace the default shell.</div>
+      </div>
+
+      <div class="card h-red">
+        <h2>Tabs</h2>
+        <pre><span class="kw">layout</span> {
+  <span class="kw">tab</span> <span class="kw">name</span>=<span class="str">"code"</span> <span class="kw">focus</span>=<span class="num">true</span> {
+    <span class="kw">pane</span> <span class="kw">size</span>=<span class="str">"70%"</span> <span class="kw">name</span>=<span class="str">"editor"</span>
+    <span class="kw">pane</span> <span class="kw">split_direction</span>=<span class="str">"vertical"</span> {
+      <span class="kw">pane</span> <span class="kw">name</span>=<span class="str">"shell"</span>
+      <span class="kw">pane</span> <span class="kw">name</span>=<span class="str">"logs"</span>
+    }
+  }
+  <span class="kw">tab</span> <span class="kw">name</span>=<span class="str">"scratch"</span> {
+    <span class="kw">pane</span>
+  }
+}</pre>
+        <div class="note"><strong>Your dev layout</strong> — already at <code>~/.config/zellij/layouts/dev.kdl</code>.</div>
+      </div>
+
+      <div class="card h-orange">
+        <h2>Templates &amp; reuse</h2>
+        <pre><span class="kw">layout</span> {
+  <span class="kw">pane_template</span> <span class="kw">name</span>=<span class="str">"watcher"</span> {
+    <span class="kw">pane</span> <span class="kw">command</span>=<span class="str">"watch"</span> {
+      <span class="kw">args</span> <span class="str">"-n"</span> <span class="str">"2"</span> <span class="str">"git"</span> <span class="str">"status"</span>
+    }
+  }
+  <span class="kw">tab</span> {
+    <span class="id">watcher</span>
+    <span class="kw">pane</span>
+  }
+}</pre>
+        <p class="desc">Define once, reference by name. <code>tab_template</code> works the same for tab structure.</p>
+      </div>
+
+      <div class="card h-blue">
+        <h2>Floating panes</h2>
+        <pre><span class="kw">layout</span> {
+  <span class="kw">pane</span>
+  <span class="kw">floating_panes</span> {
+    <span class="kw">pane</span> <span class="kw">command</span>=<span class="str">"btm"</span> {
+      <span class="kw">width</span> <span class="str">"60%"</span>
+      <span class="kw">height</span> <span class="str">"60%"</span>
+      <span class="kw">x</span> <span class="str">"20%"</span>
+      <span class="kw">y</span> <span class="str">"20%"</span>
+    }
+  }
+}</pre>
+      </div>
+
+      <div class="card h-green">
+        <h2>Plugins as panes</h2>
+        <pre><span class="kw">pane</span> <span class="kw">size</span>=<span class="num">1</span> <span class="kw">borderless</span>=<span class="num">true</span> {
+  <span class="kw">plugin</span> <span class="kw">location</span>=<span class="str">"zellij:status-bar"</span>
+}
+<span class="kw">pane</span> <span class="kw">size</span>=<span class="num">2</span> <span class="kw">borderless</span>=<span class="num">true</span> {
+  <span class="kw">plugin</span> <span class="kw">location</span>=<span class="str">"zellij:tab-bar"</span>
+}</pre>
+        <p class="desc">Built-in plugins: <code>status-bar</code>, <code>tab-bar</code>, <code>compact-bar</code>, <code>strider</code>, <code>session-manager</code>, <code>configuration</code>, <code>plugin-manager</code>, <code>about</code>.</p>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ──────────────────────────── SESSIONS ──────────────────────────── -->
+  <div class="tab-content sessions">
+    <div class="grid">
+
+      <div class="card h-blue">
+        <h2>Lifecycle</h2>
+        <p class="desc"><strong>Active</strong> session = running zellij process with at least one attached client. <strong>Detached</strong> = the process is alive, no client connected. <strong>Resurrectable</strong> = the process is gone but its serialized state is on disk; <code>attach</code> rebuilds it.</p>
+        <table>
+          <tr><td>create</td><td class="desc"><code>zellij -s NAME</code> or <code>zellij attach -c NAME</code></td></tr>
+          <tr><td>attach</td><td class="desc"><code>zellij attach NAME</code> (or just <code>zellij</code> if one exists)</td></tr>
+          <tr><td>detach</td><td class="desc"><kbd>Alt+o</kbd> <kbd>d</kbd> (keeps process)</td></tr>
+          <tr><td>kill</td><td class="desc"><code>zellij kill-session NAME</code> or <kbd>Ctrl+Q</kbd> (ends process; serialized state may remain)</td></tr>
+          <tr><td>resurrect</td><td class="desc"><code>zellij attach NAME</code> against a resurrectable session</td></tr>
+          <tr><td>delete</td><td class="desc"><code>zellij delete-session NAME</code> (wipes serialized state)</td></tr>
+        </table>
+      </div>
+
+      <div class="card h-magenta">
+        <h2>Inside session manager</h2>
+        <p class="desc">Open with <kbd>Alt+o</kbd> then <kbd>w</kbd>.</p>
+        <table>
+          <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td class="desc">navigate sessions</td></tr>
+          <tr><td><kbd>Enter</kbd></td><td class="desc">switch to session (detaches current)</td></tr>
+          <tr><td><kbd>Ctrl+r</kbd></td><td class="desc">rename session</td></tr>
+          <tr><td><kbd>Ctrl+d</kbd></td><td class="desc">disconnect other clients from this session</td></tr>
+          <tr><td><kbd>Del</kbd></td><td class="desc">kill / delete session</td></tr>
+          <tr><td><kbd>Esc</kbd></td><td class="desc">close manager</td></tr>
+        </table>
+      </div>
+
+      <div class="card h-green">
+        <h2>Multi-attach</h2>
+        <p class="desc">Two terminals can attach to the same session. Both see the same panes; input from either goes to the focused pane. Useful for pairing.</p>
+        <pre><span class="com"># terminal A</span>
+zellij -s pair
+<span class="com"># terminal B (other person, or you SSHed in)</span>
+zellij attach pair</pre>
+        <div class="note">To kick the other client without killing the session: session-manager &rarr; <kbd>Ctrl+d</kbd>.</div>
+      </div>
+
+      <div class="card h-yellow">
+        <h2>Where state lives</h2>
+        <table>
+          <tr><td><code>~/.local/share/zellij/$VER/cache</code></td><td class="desc">plugin cache</td></tr>
+          <tr><td><code>~/.cache/zellij/$VER/&lt;session&gt;</code></td><td class="desc">runtime, control sockets</td></tr>
+          <tr><td><code>~/.local/share/zellij/$VER/sessions/&lt;name&gt;</code></td><td class="desc">serialized panes &amp; scrollback (when session_serialization is on)</td></tr>
+        </table>
+        <div class="note">Lose a session you wanted? Check the sessions dir — chances are it's resurrectable with <code>zellij attach NAME</code>.</div>
+      </div>
+
+      <div class="card h-red">
+        <h2>Auto-attach on shell start</h2>
+        <p class="desc">Optional. Add this to <code>~/.bashrc</code> to make every wezterm tab attach to a single <code>main</code> session:</p>
+        <pre><span class="com"># Auto-attach to or create a zellij session called "main"</span>
+<span class="com"># unless we're already inside zellij or in a non-interactive shell.</span>
+<span class="kw">if</span> [[ -z <span class="str">"$ZELLIJ"</span> ]] &amp;&amp; [[ $- == *i* ]]; <span class="kw">then</span>
+  zellij attach -c main
+<span class="kw">fi</span></pre>
+        <div class="note warn"><strong>Tradeoff:</strong> every shell joins the same session. Spawning a "raw" terminal becomes harder. Try the manual path for a week first.</div>
+      </div>
+
+      <div class="card h-cyan">
+        <h2>Common gotchas</h2>
+        <table>
+          <tr><td>config didn't reload</td><td class="desc">syntax error — run <code>zellij setup --check</code></td></tr>
+          <tr><td>Ctrl+Q killed work</td><td class="desc">use <kbd>Alt+o</kbd> <kbd>d</kbd> to detach instead</td></tr>
+          <tr><td>Ctrl+O / Ctrl+P go to nvim</td><td class="desc">expected &mdash; this config rebound them to Alt+o / Alt+p so nvim keeps its jumplist and file-picker</td></tr>
+          <tr><td>vim key collisions</td><td class="desc">enter LOCKED mode with <kbd>Ctrl+G</kbd></td></tr>
+          <tr><td>weird font glyphs</td><td class="desc"><code>zellij options --simplified-ui true</code></td></tr>
+          <tr><td>scrollback lost on attach</td><td class="desc">set <code>scrollback_lines_to_serialize 10000</code> (default 0)</td></tr>
+          <tr><td>nothing on <code>zellij ls</code> after reboot</td><td class="desc">expected — runtime state is in <code>/tmp</code>; serialized state is on disk and resurrects via <code>attach</code></td></tr>
+        </table>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

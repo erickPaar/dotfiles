@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zellij — Interactive Practice</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'FiraCode Nerd Font', 'Fira Code', Consolas, monospace;
+  background: #1a1b26;
+  color: #c0caf5;
+  font-size: 14px;
+}
+
+.app { display: flex; height: 100vh; }
+
+/* ── Sidebar ─────────────────────── */
+.sidebar {
+  width: 280px;
+  background: #16161e;
+  border-right: 1px solid #2f3549;
+  padding: 16px;
+  overflow-y: auto;
+  flex-shrink: 0;
+  transition: margin-left 0.2s ease;
+}
+.sidebar.collapsed { margin-left: -280px; }
+.sidebar h1 { color: #7aa2f7; font-size: 18px; margin-bottom: 4px; }
+.sidebar .subtitle { color: #565f89; font-size: 11px; margin-bottom: 16px; display: block; }
+.sidebar h2 {
+  color: #565f89;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin: 18px 0 8px;
+}
+.lesson-list { list-style: none; }
+.lesson-list li {
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  color: #c0caf5;
+  margin-bottom: 2px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.lesson-list li:hover { background: #24283b; }
+.lesson-list li.active { background: #24283b; color: #7aa2f7; }
+.lesson-list li.done::before {
+  content: "\2713";
+  color: #9ece6a;
+  font-weight: bold;
+  margin-right: -4px;
+}
+.lesson-list li.todo::before {
+  content: "\25CB";
+  color: #565f89;
+  margin-right: -4px;
+}
+
+.sidebar-toggle {
+  position: fixed;
+  left: 8px;
+  top: 8px;
+  z-index: 100;
+  background: #24283b;
+  border: 1px solid #2f3549;
+  color: #7aa2f7;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: left 0.2s ease;
+}
+.sidebar-toggle.shifted { left: 288px; }
+.sidebar-toggle:hover { background: #2f3549; }
+
+/* ── Main ─────────────────────── */
+.content {
+  flex: 1;
+  padding: 24px;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 22px;
+  align-content: start;
+}
+@media (max-width: 1100px) { .content { grid-template-columns: 1fr; } }
+
+h1.title { color: #7aa2f7; font-size: 22px; margin-bottom: 4px; }
+.title-sub { color: #565f89; font-size: 12px; margin-bottom: 22px; }
+
+.lesson-card {
+  background: #24283b;
+  border: 1px solid #2f3549;
+  border-radius: 10px;
+  padding: 20px;
+}
+.lesson-card h2 { color: #7aa2f7; font-size: 16px; margin-bottom: 8px; }
+.lesson-card p { color: #c0caf5; font-size: 13px; line-height: 1.7; margin-bottom: 10px; }
+.lesson-card .objective {
+  background: #16161e;
+  border-left: 3px solid #9ece6a;
+  padding: 10px 14px;
+  border-radius: 0 6px 6px 0;
+  margin: 14px 0;
+  font-size: 12px;
+  color: #9ece6a;
+}
+.lesson-card .objective strong { color: #c0caf5; }
+
+.lesson-card kbd {
+  background: #1a1b26;
+  color: #7aa2f7;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 12px;
+  border: 1px solid #2f3549;
+  font-family: inherit;
+}
+.lesson-card code {
+  background: #1a1b26;
+  color: #7dcfff;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 12px;
+  border: 1px solid #2f3549;
+}
+
+.lesson-nav {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 18px;
+  gap: 10px;
+}
+.lesson-nav button {
+  background: #1a1b26;
+  border: 1px solid #2f3549;
+  color: #c0caf5;
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+}
+.lesson-nav button:hover { background: #2f3549; color: #7aa2f7; }
+.lesson-nav button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── Simulator ─────────────────────── */
+.sim-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.sim {
+  background: #0d0e15;
+  border: 1px solid #2f3549;
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 360px;
+}
+.sim-tabs {
+  display: flex;
+  gap: 0;
+  background: #16161e;
+  border-bottom: 1px solid #2f3549;
+  padding: 4px 8px 0;
+  overflow-x: auto;
+}
+.sim-tab {
+  padding: 6px 14px;
+  font-size: 11px;
+  color: #565f89;
+  border: 1px solid #2f3549;
+  border-bottom: none;
+  border-radius: 5px 5px 0 0;
+  background: #1a1b26;
+  margin-right: 2px;
+  white-space: nowrap;
+}
+.sim-tab.focused {
+  background: #24283b;
+  color: #7aa2f7;
+  border-color: #7aa2f7;
+}
+
+.sim-body {
+  flex: 1;
+  padding: 8px;
+  display: flex;
+  background: #0d0e15;
+  min-height: 280px;
+}
+
+.sim-pane, .sim-split {
+  flex: 1;
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+  min-height: 0;
+}
+.sim-split.h { flex-direction: row; }
+.sim-split.v { flex-direction: column; }
+.sim-leaf {
+  background: #1a1b26;
+  border: 1px solid #2f3549;
+  border-radius: 5px;
+  padding: 10px;
+  font-size: 11px;
+  color: #565f89;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.sim-leaf.focused {
+  border-color: #7aa2f7;
+  background: #232843;
+  color: #c0caf5;
+  box-shadow: 0 0 0 1px #7aa2f7 inset;
+}
+.sim-leaf .pane-name {
+  font-size: 11px;
+  color: #bb9af7;
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+.sim-leaf .pane-prompt {
+  color: #565f89;
+  font-size: 11px;
+  margin-top: auto;
+}
+.sim-leaf.focused .pane-prompt { color: #9ece6a; }
+
+.sim-status {
+  background: #16161e;
+  border-top: 1px solid #2f3549;
+  padding: 4px 10px;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #565f89;
+}
+.mode-pill {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.mode-pill.NORMAL  { background: rgba(122,162,247,0.18); color: #7aa2f7; }
+.mode-pill.PANE    { background: rgba(187,154,247,0.18); color: #bb9af7; }
+.mode-pill.TAB     { background: rgba(125,207,255,0.18); color: #7dcfff; }
+.mode-pill.RESIZE  { background: rgba(224,175,104,0.18); color: #e0af68; }
+.mode-pill.SCROLL  { background: rgba(158,206,106,0.18); color: #9ece6a; }
+.mode-pill.SESSION { background: rgba(247,118,142,0.18); color: #f7768e; }
+.mode-pill.MOVE    { background: rgba(255,158,100,0.18); color: #ff9e64; }
+.mode-pill.LOCKED  { background: rgba(247,118,142,0.18); color: #f7768e; }
+.sim-status .hints { color: #414868; font-size: 10px; }
+.sim-status .session-name { margin-left: auto; color: #565f89; font-size: 10px; }
+
+/* ── Key pad ─────────────────────── */
+.keypad {
+  background: #16161e;
+  border: 1px solid #2f3549;
+  border-radius: 10px;
+  padding: 14px;
+}
+.keypad h3 { color: #7aa2f7; font-size: 12px; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.08em; }
+.keypad .row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.keypad button {
+  background: #24283b;
+  border: 1px solid #2f3549;
+  color: #c0caf5;
+  padding: 6px 10px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+  min-width: 36px;
+}
+.keypad button:hover { background: #2f3549; border-color: #7aa2f7; }
+.keypad button .label { display: block; font-size: 10px; color: #565f89; margin-top: 2px; }
+.keypad .lock {
+  background: #1a1b26;
+  border-color: #f7768e;
+  color: #f7768e;
+}
+.keypad .esc { background: #1a1b26; border-color: #565f89; color: #565f89; }
+
+.keypad .note {
+  color: #565f89;
+  font-size: 10px;
+  line-height: 1.5;
+  margin-top: 8px;
+}
+
+.toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #24283b;
+  border: 1px solid #7aa2f7;
+  color: #c0caf5;
+  padding: 10px 18px;
+  border-radius: 6px;
+  font-size: 12px;
+  z-index: 50;
+  display: none;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+}
+.toast.show { display: block; animation: slidein 0.2s ease; }
+@keyframes slidein {
+  from { transform: translate(-50%, 10px); opacity: 0; }
+  to { transform: translate(-50%, 0); opacity: 1; }
+}
+
+.progress {
+  height: 4px;
+  background: #16161e;
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #7aa2f7, #bb9af7);
+  transition: width 0.3s ease;
+}
+
+.success-flash {
+  display: none;
+  background: rgba(158,206,106,0.15);
+  border-left: 3px solid #9ece6a;
+  border-radius: 0 6px 6px 0;
+  padding: 10px 14px;
+  margin-top: 12px;
+  font-size: 12px;
+  color: #9ece6a;
+  animation: flashIn 0.3s ease;
+}
+.success-flash.show { display: block; }
+@keyframes flashIn {
+  from { opacity: 0; transform: translateX(-4px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+</style>
+</head>
+<body>
+
+<button class="sidebar-toggle" id="sb-toggle">&#x2630;</button>
+
+<div class="app">
+  <aside class="sidebar" id="sidebar">
+    <h1>Zellij</h1>
+    <span class="subtitle">interactive practice &middot; press buttons to drive a simulated session</span>
+
+    <h2>Lessons</h2>
+    <ul class="lesson-list" id="lesson-list"></ul>
+
+    <h2>Reset</h2>
+    <ul class="lesson-list">
+      <li id="reset-sim">&#x21BB; reset simulator</li>
+      <li id="reset-progress">&#x1F5D1; reset progress</li>
+    </ul>
+  </aside>
+
+  <main class="content">
+    <div class="lesson-area">
+      <div class="progress"><div class="progress-bar" id="progress-bar" style="width: 0%"></div></div>
+      <h1 class="title" id="lesson-title">Lesson</h1>
+      <p class="title-sub" id="lesson-sub">subtitle</p>
+      <div class="lesson-card" id="lesson-card">
+        <div id="lesson-body"></div>
+        <div class="objective" id="lesson-objective"></div>
+        <div class="success-flash" id="lesson-success">&#x2713; Nice. Click <strong>Next</strong> to continue.</div>
+        <div class="lesson-nav">
+          <button id="lesson-prev">&larr; Previous</button>
+          <button id="lesson-next">Next &rarr;</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="sim-wrap">
+      <div class="sim">
+        <div class="sim-tabs" id="sim-tabs"></div>
+        <div class="sim-body" id="sim-body"></div>
+        <div class="sim-status">
+          <span class="mode-pill" id="mode-pill">NORMAL</span>
+          <span class="hints" id="mode-hints"></span>
+          <span class="session-name" id="session-name">session: main</span>
+        </div>
+      </div>
+
+      <div class="keypad" id="keypad">
+        <h3 id="keypad-title">Keys</h3>
+        <div id="keypad-body"></div>
+        <div class="note">In real zellij some of these are <kbd>Ctrl+letter</kbd> chords; the simulator uses single buttons to avoid browser shortcut conflicts. The flow is identical.</div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+//═════════════════════════════════════════════════════════════════════
+//  ZELLIJ SIMULATOR
+//═════════════════════════════════════════════════════════════════════
+
+let nextPaneId = 1;
+const newPane = (name = 'shell') => ({ type: 'leaf', id: nextPaneId++, name, prompt: '$' });
+
+const splitPane = (dir, children) => ({ type: 'split', dir, children });
+
+function defaultState() {
+  nextPaneId = 1;
+  return {
+    sessionName: 'main',
+    tabs: [
+      { name: 'tab', tree: newPane('shell'), focused: 1 },
+    ],
+    activeTab: 0,
+    mode: 'NORMAL',
+    floatingShown: false,
+    detached: false,
+  };
+}
+
+let state = defaultState();
+
+//─── tree helpers ─────────────────────────────────────────────────────
+function findFocusedParent(node, focusedId, path = []) {
+  if (node.type === 'leaf') {
+    return node.id === focusedId ? { node: null, child: node, path } : null;
+  }
+  for (let i = 0; i < node.children.length; i++) {
+    const c = node.children[i];
+    if (c.type === 'leaf' && c.id === focusedId) {
+      return { parent: node, index: i, child: c, path: [...path, i] };
+    }
+    const deep = findFocusedParent(c, focusedId, [...path, i]);
+    if (deep) return deep;
+  }
+  return null;
+}
+
+function leafIds(node, acc = []) {
+  if (node.type === 'leaf') acc.push(node.id);
+  else node.children.forEach(c => leafIds(c, acc));
+  return acc;
+}
+
+function leafCount(node) { return leafIds(node).length; }
+
+function activeTab() { return state.tabs[state.activeTab]; }
+
+function splitInsideFocused(direction) {
+  // direction: 'h' (right) or 'v' (down)
+  const tab = activeTab();
+  const newLeaf = newPane('shell');
+  if (tab.tree.type === 'leaf') {
+    const old = tab.tree;
+    tab.tree = splitPane(direction, [old, newLeaf]);
+    tab.focused = newLeaf.id;
+    return;
+  }
+  const info = findFocusedParent(tab.tree, tab.focused);
+  if (!info) return;
+  const { parent, index, child } = info;
+  // If parent direction matches, append sibling. Else replace child with a new split.
+  if (parent.dir === direction) {
+    parent.children.splice(index + 1, 0, newLeaf);
+  } else {
+    parent.children[index] = splitPane(direction, [child, newLeaf]);
+  }
+  tab.focused = newLeaf.id;
+}
+
+function closeFocused() {
+  const tab = activeTab();
+  if (tab.tree.type === 'leaf') {
+    // last pane in tab? close tab if more tabs exist, else leave
+    if (state.tabs.length > 1) {
+      state.tabs.splice(state.activeTab, 1);
+      state.activeTab = Math.max(0, state.activeTab - 1);
+    }
+    return;
+  }
+  const info = findFocusedParent(tab.tree, tab.focused);
+  if (!info || !info.parent) return;
+  const { parent, index } = info;
+  parent.children.splice(index, 1);
+  // collapse parent if only one child remains
+  if (parent.children.length === 1) {
+    const onlyChild = parent.children[0];
+    replaceNode(tab.tree, parent, onlyChild, tab);
+  }
+  // focus a remaining leaf
+  const remaining = leafIds(tab.tree);
+  tab.focused = remaining[0];
+}
+
+function replaceNode(root, target, replacement, tab) {
+  if (root === target) {
+    tab.tree = replacement;
+    return true;
+  }
+  if (root.type === 'split') {
+    for (let i = 0; i < root.children.length; i++) {
+      if (root.children[i] === target) {
+        root.children[i] = replacement;
+        return true;
+      }
+      if (replaceNode(root.children[i], target, replacement, tab)) return true;
+    }
+  }
+  return false;
+}
+
+// Move focus in a direction by inspecting the tree.
+function moveFocus(dir) {
+  // dir: 'left' | 'right' | 'up' | 'down'
+  const tab = activeTab();
+  const ids = leafIds(tab.tree);
+  if (ids.length < 2) return;
+  // Build flat positions
+  const positions = [];
+  computePositions(tab.tree, { x: 0, y: 0, w: 100, h: 100 }, positions);
+  const cur = positions.find(p => p.id === tab.focused);
+  if (!cur) return;
+  let best = null;
+  for (const p of positions) {
+    if (p.id === cur.id) continue;
+    let valid = false;
+    if (dir === 'right' && p.x > cur.x && rangesOverlap(p.y, p.y + p.h, cur.y, cur.y + cur.h)) valid = true;
+    if (dir === 'left'  && p.x + p.w <= cur.x && rangesOverlap(p.y, p.y + p.h, cur.y, cur.y + cur.h)) valid = true;
+    if (dir === 'down'  && p.y > cur.y && rangesOverlap(p.x, p.x + p.w, cur.x, cur.x + cur.w)) valid = true;
+    if (dir === 'up'    && p.y + p.h <= cur.y && rangesOverlap(p.x, p.x + p.w, cur.x, cur.x + cur.w)) valid = true;
+    if (!valid) continue;
+    const distance = Math.hypot(p.x - cur.x, p.y - cur.y);
+    if (!best || distance < best.d) best = { id: p.id, d: distance };
+  }
+  if (best) tab.focused = best.id;
+}
+
+function rangesOverlap(a1, a2, b1, b2) { return a1 < b2 && b1 < a2; }
+
+function computePositions(node, rect, out) {
+  if (node.type === 'leaf') {
+    out.push({ id: node.id, ...rect });
+    return;
+  }
+  const n = node.children.length;
+  if (node.dir === 'h') {
+    const w = rect.w / n;
+    node.children.forEach((c, i) => computePositions(c, { x: rect.x + i * w, y: rect.y, w, h: rect.h }, out));
+  } else {
+    const h = rect.h / n;
+    node.children.forEach((c, i) => computePositions(c, { x: rect.x, y: rect.y + i * h, w: rect.w, h }, out));
+  }
+}
+
+function focusedLeaf() {
+  const tab = activeTab();
+  const ids = leafIds(tab.tree);
+  return ids.find(id => id === tab.focused);
+}
+
+function newTab() {
+  state.tabs.push({ name: 'tab', tree: newPane('shell'), focused: -1 });
+  const t = state.tabs[state.tabs.length - 1];
+  t.focused = t.tree.id;
+  state.activeTab = state.tabs.length - 1;
+}
+
+function closeTab() {
+  if (state.tabs.length <= 1) return;
+  state.tabs.splice(state.activeTab, 1);
+  state.activeTab = Math.max(0, state.activeTab - 1);
+}
+
+function goToTab(i) {
+  if (i >= 0 && i < state.tabs.length) state.activeTab = i;
+}
+
+//─── render ─────────────────────────────────────────────────────
+function render() {
+  // Tabs
+  const tabsEl = document.getElementById('sim-tabs');
+  tabsEl.innerHTML = '';
+  state.tabs.forEach((t, i) => {
+    const el = document.createElement('div');
+    el.className = 'sim-tab' + (i === state.activeTab ? ' focused' : '');
+    el.textContent = `${i + 1}. ${t.name}`;
+    tabsEl.appendChild(el);
+  });
+
+  // Body
+  const bodyEl = document.getElementById('sim-body');
+  bodyEl.innerHTML = '';
+  if (state.detached) {
+    bodyEl.innerHTML = `<div style="margin:auto; color:#565f89; text-align:center; font-size:12px;">
+      <div style="font-size:32px; margin-bottom:8px;">&#x1F6AA;</div>
+      <div><strong style="color:#e0af68">detached</strong> — session is still running</div>
+      <div style="margin-top:6px;">re-attach via the lesson controls</div>
+    </div>`;
+  } else {
+    const tab = activeTab();
+    bodyEl.appendChild(renderNode(tab.tree, tab.focused));
+  }
+
+  // Mode pill + hints
+  const modePill = document.getElementById('mode-pill');
+  modePill.className = 'mode-pill ' + state.mode;
+  modePill.textContent = state.mode;
+  document.getElementById('mode-hints').textContent = modeHint(state.mode);
+  document.getElementById('session-name').textContent = 'session: ' + state.sessionName + (state.detached ? ' (detached)' : '');
+
+  renderKeypad();
+}
+
+function renderNode(node, focusedId) {
+  if (node.type === 'leaf') {
+    const el = document.createElement('div');
+    el.className = 'sim-leaf' + (node.id === focusedId ? ' focused' : '');
+    el.innerHTML = `<div class="pane-name">[${node.id}] ${node.name}</div>
+                    <div class="pane-prompt">${node.prompt} █</div>`;
+    return el;
+  }
+  const el = document.createElement('div');
+  el.className = 'sim-split ' + node.dir;
+  node.children.forEach(c => el.appendChild(renderNode(c, focusedId)));
+  return el;
+}
+
+function modeHint(m) {
+  switch (m) {
+    case 'NORMAL':  return 'p Pane &middot; t Tab &middot; r Resize &middot; s Scroll &middot; o Session &middot; m Move &middot; g Lock';
+    case 'PANE':    return 'n new &middot; r split right &middot; d split down &middot; x close &middot; h/j/k/l focus &middot; Esc back';
+    case 'TAB':     return 'n new &middot; x close &middot; h prev &middot; l next &middot; 1-9 jump &middot; Esc back';
+    case 'RESIZE':  return '+/- grow/shrink (sim is simplified) &middot; Esc back';
+    case 'SCROLL':  return 'k/j line &middot; PgUp/PgDn page &middot; Esc back';
+    case 'SESSION': return 'd detach &middot; w session manager &middot; Esc back';
+    case 'MOVE':    return 'h/j/k/l swap pane in direction &middot; Esc back';
+    case 'LOCKED':  return 'all keys pass through to the running program &middot; g unlock';
+    default: return '';
+  }
+}
+
+//─── keypad layouts per mode ─────────────────────────────────────
+function renderKeypad() {
+  const title = document.getElementById('keypad-title');
+  const body = document.getElementById('keypad-body');
+  title.textContent = 'Keys — ' + state.mode + ' mode';
+  body.innerHTML = '';
+
+  const make = (label, sub, fn, opts = {}) => {
+    const b = document.createElement('button');
+    b.innerHTML = `${label}<span class="label">${sub}</span>`;
+    b.onclick = () => { fn(); afterAction(); };
+    if (opts.cls) b.classList.add(opts.cls);
+    return b;
+  };
+  const row = (...buttons) => {
+    const r = document.createElement('div');
+    r.className = 'row';
+    buttons.forEach(b => r.appendChild(b));
+    body.appendChild(r);
+  };
+
+  if (state.detached) {
+    row(make('attach', 'rejoin', () => { state.detached = false; toast('attached. everything is right where you left it.'); }));
+    return;
+  }
+
+  switch (state.mode) {
+    case 'NORMAL':
+      row(
+        make('p', 'PANE', () => state.mode = 'PANE'),
+        make('t', 'TAB', () => state.mode = 'TAB'),
+        make('r', 'RESIZE', () => state.mode = 'RESIZE'),
+        make('s', 'SCROLL', () => state.mode = 'SCROLL'),
+      );
+      row(
+        make('o', 'SESSION', () => state.mode = 'SESSION'),
+        make('m', 'MOVE', () => state.mode = 'MOVE'),
+        make('g', 'LOCK', () => state.mode = 'LOCKED', { cls: 'lock' }),
+      );
+      row(
+        make('Alt+n', 'new pane', () => { splitInsideFocused('h'); }),
+        make('Alt+→', 'focus right', () => moveFocus('right')),
+        make('Alt+←', 'focus left', () => moveFocus('left')),
+      );
+      row(
+        make('Alt+↑', 'focus up', () => moveFocus('up')),
+        make('Alt+↓', 'focus down', () => moveFocus('down')),
+      );
+      break;
+
+    case 'PANE':
+      row(
+        make('n', 'new', () => { splitInsideFocused('h'); state.mode = 'NORMAL'; }),
+        make('r', 'split right', () => { splitInsideFocused('h'); state.mode = 'NORMAL'; }),
+        make('d', 'split down', () => { splitInsideFocused('v'); state.mode = 'NORMAL'; }),
+        make('x', 'close', () => { closeFocused(); state.mode = 'NORMAL'; }),
+      );
+      row(
+        make('h', 'focus ←', () => moveFocus('left')),
+        make('j', 'focus ↓', () => moveFocus('down')),
+        make('k', 'focus ↑', () => moveFocus('up')),
+        make('l', 'focus →', () => moveFocus('right')),
+      );
+      row(
+        make('f', 'fullscreen', () => { toast('(fullscreen toggle — visual stays the same in sim)'); state.mode = 'NORMAL'; }),
+        make('Esc', 'normal', () => state.mode = 'NORMAL', { cls: 'esc' }),
+      );
+      break;
+
+    case 'TAB':
+      row(
+        make('n', 'new tab', () => { newTab(); state.mode = 'NORMAL'; }),
+        make('x', 'close tab', () => { closeTab(); state.mode = 'NORMAL'; }),
+      );
+      row(
+        make('h', 'prev', () => { goToTab(state.activeTab - 1); }),
+        make('l', 'next', () => { goToTab(state.activeTab + 1); }),
+      );
+      const tabRow = document.createElement('div');
+      tabRow.className = 'row';
+      state.tabs.forEach((_, i) => {
+        const b = document.createElement('button');
+        b.innerHTML = `${i + 1}<span class="label">tab ${i + 1}</span>`;
+        b.onclick = () => { goToTab(i); state.mode = 'NORMAL'; afterAction(); };
+        tabRow.appendChild(b);
+      });
+      body.appendChild(tabRow);
+      row(make('Esc', 'normal', () => state.mode = 'NORMAL', { cls: 'esc' }));
+      break;
+
+    case 'RESIZE':
+      row(make('Esc', 'normal — resize is visual-only here', () => state.mode = 'NORMAL', { cls: 'esc' }));
+      break;
+
+    case 'SCROLL':
+      row(make('Esc', 'normal — scroll is visual-only here', () => state.mode = 'NORMAL', { cls: 'esc' }));
+      break;
+
+    case 'SESSION':
+      row(
+        make('d', 'detach', () => { state.detached = true; state.mode = 'NORMAL'; toast('detached. session lives on. press attach to come back.'); }),
+        make('w', 'manager', () => { toast('opens the session-manager plugin in real zellij'); state.mode = 'NORMAL'; }),
+      );
+      row(make('Esc', 'normal', () => state.mode = 'NORMAL', { cls: 'esc' }));
+      break;
+
+    case 'MOVE':
+      row(make('Esc', 'normal — move is simplified in sim', () => state.mode = 'NORMAL', { cls: 'esc' }));
+      break;
+
+    case 'LOCKED':
+      row(make('g', 'unlock', () => state.mode = 'NORMAL', { cls: 'lock' }));
+      row(make('any', 'passthrough', () => toast('Each keystroke is forwarded to the running program')));
+      break;
+  }
+}
+
+//═════════════════════════════════════════════════════════════════════
+//  LESSONS
+//═════════════════════════════════════════════════════════════════════
+const lessons = [
+  {
+    title: 'Lesson 1 · Modes',
+    sub: 'How zellij multiplexes its keybinds',
+    body: `<p>Zellij is <em>modal</em>. From <kbd>NORMAL</kbd> you press a chord that opens a category — in your config <kbd>Alt+p</kbd> for panes, <kbd>Ctrl+T</kbd> for tabs, <kbd>Alt+o</kbd> for session, and so on. Inside a mode, single letters do things; <kbd>Esc</kbd> brings you back.</p>
+       <p>The bottom-left pill in the simulator shows the current mode. The keypad uses single letters as proxies for the real chords — flow is identical.</p>`,
+    objective: 'Enter PANE, then TAB, then SCROLL, then return to NORMAL.',
+    init: () => { state = defaultState(); },
+    check: (history) => {
+      const modes = history.map(h => h.modeAfter);
+      return ['PANE','TAB','SCROLL'].every(m => modes.includes(m)) && state.mode === 'NORMAL';
+    },
+  },
+  {
+    title: 'Lesson 2 · Splitting',
+    sub: 'New panes appear next to the focused one',
+    body: `<p>From PANE mode: <kbd>r</kbd> splits the focused pane <strong>right</strong> (new pane to the right), <kbd>d</kbd> splits <strong>down</strong>, <kbd>n</kbd> picks an auto direction. The new pane gets focus.</p>
+       <p>Watch the pane numbers: the highlighted one is focused.</p>`,
+    objective: 'End up with at least 3 panes in the current tab.',
+    init: () => { state = defaultState(); state.mode = 'NORMAL'; },
+    check: () => leafCount(activeTab().tree) >= 3,
+  },
+  {
+    title: 'Lesson 3 · Focus',
+    sub: 'Move between panes without splitting',
+    body: `<p>In real zellij, <kbd>Alt+h/j/k/l</kbd> or <kbd>Alt+arrow</kbd> moves focus directly without entering PANE mode. In PANE mode, <kbd>h/j/k/l</kbd> do the same. The simulator exposes both via the keypad — try the Alt buttons from NORMAL.</p>
+       <p>Notice the focused pane has a blue glow.</p>`,
+    objective: 'Focus at least 2 different panes (without splitting).',
+    init: () => {
+      state = defaultState();
+      splitInsideFocused('h');
+      splitInsideFocused('v');
+      state.mode = 'NORMAL';
+    },
+    check: (history) => {
+      const focused = history.filter(h => h.action === 'focus').map(h => h.toFocus);
+      return new Set(focused).size >= 2;
+    },
+  },
+  {
+    title: 'Lesson 4 · Tabs',
+    sub: 'Tabs are separate pane trees inside the session',
+    body: `<p>From TAB mode: <kbd>n</kbd> opens a new tab, <kbd>1</kbd>..<kbd>9</kbd> jumps. Each tab has its own independent pane tree — splits in one don't show up in the other.</p>`,
+    objective: 'Create 2 extra tabs (3 total) and jump between them.',
+    init: () => { state = defaultState(); state.mode = 'NORMAL'; },
+    check: (history) => {
+      if (state.tabs.length < 3) return false;
+      const tabSwitches = history.filter(h => h.action === 'tab-switch').map(h => h.toTab);
+      return new Set(tabSwitches).size >= 2;
+    },
+  },
+  {
+    title: 'Lesson 5 · Closing',
+    sub: 'Reduce until the tree collapses',
+    body: `<p>From PANE mode: <kbd>x</kbd> closes the focused pane. When a split has only one child left, zellij collapses the split. Closing the last pane in a tab closes the tab.</p>`,
+    objective: 'Build up to 4 panes, then close until 1 pane remains.',
+    init: () => { state = defaultState(); state.mode = 'NORMAL'; },
+    check: (history) => {
+      const max = Math.max(...history.map(h => h.paneCount), leafCount(activeTab().tree));
+      return max >= 4 && leafCount(activeTab().tree) === 1;
+    },
+  },
+  {
+    title: 'Lesson 6 · LOCKED',
+    sub: 'The escape hatch for key collisions',
+    body: `<p>Inside vim, htop, tig, IPython, your editor wants <kbd>Ctrl+S</kbd> or <kbd>Ctrl+T</kbd> for itself. Press <kbd>Ctrl+G</kbd> and zellij forwards every key untouched. Press <kbd>Ctrl+G</kbd> again to unlock.</p>
+       <p>This config has already freed the worst offenders (<kbd>Ctrl+P</kbd> stays with nvim, <kbd>Ctrl+O</kbd> stays with nvim's jumplist), so LOCKED is mostly for the leftovers.</p>`,
+    objective: 'Enter LOCKED, then unlock.',
+    init: () => { state = defaultState(); state.mode = 'NORMAL'; },
+    check: (history) => {
+      const modes = history.map(h => h.modeAfter);
+      return modes.includes('LOCKED') && state.mode === 'NORMAL';
+    },
+  },
+  {
+    title: 'Lesson 7 · Detach',
+    sub: 'The whole point of a multiplexer',
+    body: `<p>From SESSION mode (<kbd>Alt+o</kbd> in your config): <kbd>d</kbd> detaches. The zellij <em>process</em> keeps running, holding your panes, scrollback, and shells. Your terminal disconnects.</p>
+       <p>Run <code>zellij attach NAME</code> from any terminal — even a brand-new one after closing wezterm — and everything is exactly where you left it.</p>`,
+    objective: 'Detach, then attach again.',
+    init: () => { state = defaultState(); state.mode = 'NORMAL'; splitInsideFocused('h'); state.mode = 'NORMAL'; },
+    check: (history) => {
+      return history.some(h => h.action === 'detach') && history.some(h => h.action === 'attach');
+    },
+  },
+  {
+    title: 'Lesson 8 · Put it together',
+    sub: 'A realistic dev session',
+    body: `<p>Last one. Build a layout that matches the <code>dev</code> layout in your config:</p>
+       <ul style="margin-left:1.2rem; margin-bottom:1rem;">
+         <li>Tab 1 ("code") has 3 panes: an editor pane and two smaller panes side-by-side.</li>
+         <li>Tab 2 ("scratch") has 1 pane.</li>
+       </ul>
+       <p>You can split inside tab 1, switch to tab mode to add tab 2, then come back.</p>`,
+    objective: 'Tab 1 has ≥ 3 panes. Total tabs ≥ 2.',
+    init: () => { state = defaultState(); state.mode = 'NORMAL'; },
+    check: () => state.tabs.length >= 2 && leafCount(state.tabs[0].tree) >= 3,
+  },
+];
+
+let currentLesson = 0;
+let progress = JSON.parse(localStorage.getItem('zellij-practice-progress') || '[]');
+let actionHistory = [];
+
+function saveProgress() {
+  localStorage.setItem('zellij-practice-progress', JSON.stringify(progress));
+}
+
+function renderLessonList() {
+  const ul = document.getElementById('lesson-list');
+  ul.innerHTML = '';
+  lessons.forEach((l, i) => {
+    const li = document.createElement('li');
+    li.className = (progress.includes(i) ? 'done' : 'todo') + (i === currentLesson ? ' active' : '');
+    li.textContent = l.title;
+    li.onclick = () => loadLesson(i);
+    ul.appendChild(li);
+  });
+  const pct = (progress.length / lessons.length) * 100;
+  document.getElementById('progress-bar').style.width = pct + '%';
+}
+
+function loadLesson(i) {
+  currentLesson = i;
+  const l = lessons[i];
+  document.getElementById('lesson-title').textContent = l.title;
+  document.getElementById('lesson-sub').textContent = l.sub;
+  document.getElementById('lesson-body').innerHTML = l.body;
+  document.getElementById('lesson-objective').innerHTML = '<strong>Goal:</strong> ' + l.objective;
+  document.getElementById('lesson-success').classList.remove('show');
+  document.getElementById('lesson-prev').disabled = i === 0;
+  document.getElementById('lesson-next').disabled = i === lessons.length - 1;
+  actionHistory = [];
+  l.init();
+  render();
+  renderLessonList();
+}
+
+function afterAction() {
+  const tab = activeTab();
+  const event = {
+    action: 'unknown',
+    modeAfter: state.mode,
+    paneCount: leafCount(tab.tree),
+    activeTab: state.activeTab,
+    toFocus: tab.focused,
+    toTab: state.activeTab,
+  };
+  actionHistory.push(event);
+  render();
+  // check lesson
+  const l = lessons[currentLesson];
+  if (l.check(actionHistory)) {
+    document.getElementById('lesson-success').classList.add('show');
+    if (!progress.includes(currentLesson)) {
+      progress.push(currentLesson);
+      saveProgress();
+      renderLessonList();
+    }
+  }
+}
+
+// Wrap mutations to log actions
+const origMoveFocus = moveFocus;
+moveFocus = function(dir) {
+  const before = activeTab().focused;
+  origMoveFocus(dir);
+  const after = activeTab().focused;
+  if (before !== after) actionHistory.push({ action: 'focus', toFocus: after, modeAfter: state.mode, paneCount: leafCount(activeTab().tree), activeTab: state.activeTab });
+};
+
+const origGoToTab = goToTab;
+goToTab = function(i) {
+  const before = state.activeTab;
+  origGoToTab(i);
+  if (before !== state.activeTab) actionHistory.push({ action: 'tab-switch', toTab: state.activeTab, modeAfter: state.mode, paneCount: leafCount(activeTab().tree) });
+};
+
+// Detach / attach events
+const wrapDetach = () => actionHistory.push({ action: 'detach', modeAfter: state.mode, paneCount: leafCount(activeTab().tree), activeTab: state.activeTab });
+const wrapAttach = () => actionHistory.push({ action: 'attach', modeAfter: state.mode, paneCount: leafCount(activeTab().tree), activeTab: state.activeTab });
+
+// Hook into the SESSION/detach button by re-wiring at render time:
+const oldRenderKeypad = renderKeypad;
+renderKeypad = function() {
+  oldRenderKeypad();
+  // After re-render, observe detach button (SESSION mode) and attach button (detached)
+  if (state.mode === 'SESSION' && !state.detached) {
+    const buttons = document.querySelectorAll('#keypad-body button');
+    buttons.forEach(b => {
+      if (b.textContent.startsWith('d')) {
+        const orig = b.onclick;
+        b.onclick = (e) => { orig(e); wrapDetach(); };
+      }
+    });
+  }
+  if (state.detached) {
+    const buttons = document.querySelectorAll('#keypad-body button');
+    buttons.forEach(b => {
+      if (b.textContent.startsWith('attach')) {
+        const orig = b.onclick;
+        b.onclick = (e) => { orig(e); wrapAttach(); };
+      }
+    });
+  }
+};
+
+//─── toast ─────────────────────────────────────
+let toastTimer = null;
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+}
+
+//─── wiring ─────────────────────────────────────
+document.getElementById('lesson-next').onclick = () => {
+  if (currentLesson < lessons.length - 1) loadLesson(currentLesson + 1);
+};
+document.getElementById('lesson-prev').onclick = () => {
+  if (currentLesson > 0) loadLesson(currentLesson - 1);
+};
+document.getElementById('reset-sim').onclick = () => { lessons[currentLesson].init(); render(); actionHistory = []; toast('simulator reset'); };
+document.getElementById('reset-progress').onclick = () => {
+  if (confirm('Clear all lesson progress?')) { progress = []; saveProgress(); renderLessonList(); }
+};
+
+document.getElementById('sb-toggle').onclick = () => {
+  document.getElementById('sidebar').classList.toggle('collapsed');
+  document.getElementById('sb-toggle').classList.toggle('shifted');
+};
+
+// Boot
+loadLesson(0);
+</script>
+
+</body>
+</html>

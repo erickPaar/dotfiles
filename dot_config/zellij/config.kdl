@@ -1,0 +1,57 @@
+// Zellij config. Reload at runtime is automatic when this file changes.
+
+// Bash matches the rest of the dotfiles. Override per-pane in a layout if needed.
+default_shell "bash"
+
+// Persist sessions across restarts so closing wezterm doesn't lose the layout.
+session_serialization true
+pane_viewport_serialization true
+serialize_pane_viewport true
+scrollback_lines_to_serialize 10000
+
+// Pretty status bar, no pane frames (wezterm already gives you borders).
+pane_frames false
+simplified_ui false
+default_layout "compact"
+theme "catppuccin-mocha"
+
+// Mouse on — drag pane borders, select text, click tabs.
+mouse_mode true
+
+// Detach instead of kill when the terminal window closes.
+// This is what makes "I closed wezterm, my work is still there" work.
+on_force_close "detach"
+
+// Use xclip so the y key in scrollback copies to the system clipboard.
+copy_command "xclip -selection clipboard"
+copy_on_select false
+
+// Don't auto-show startup tips — quieter UI.
+show_startup_tips false
+show_release_notes false
+
+// Keybinds: move two mode-entries off Ctrl+O / Ctrl+P so nvim's <C-o> jumplist
+// and <C-p> file-picker keep working when nvim runs inside a zellij pane.
+// Zellij tab nav lives on Alt+h / Alt+l so Ctrl+H / Ctrl+L pass through to
+// nvim (window-direction) and bash (backspace / clear-screen).
+keybinds {
+    // Mode entries: Ctrl+P / Ctrl+O moved to Alt+p / Alt+o.
+    // Tab nav: default Alt+h/Alt+l (MoveFocusOrTab) replaced with dedicated
+    // GoToPreviousTab/GoToNextTab. The MoveFocusOrTab behavior is still
+    // available on Alt+arrow keys for pane focus across edges.
+    normal {
+        unbind "Ctrl p"
+        unbind "Ctrl o"
+        bind "Alt p" { SwitchToMode "Pane"; }
+        bind "Alt o" { SwitchToMode "Session"; }
+
+        bind "Alt h" { GoToPreviousTab; }
+        bind "Alt l" { GoToNextTab; }
+    }
+
+    // Make Ctrl+G the global lock/unlock. Default already does this; pinned
+    // here so a future config change doesn't accidentally break the escape hatch.
+    locked {
+        bind "Ctrl g" { SwitchToMode "Normal"; }
+    }
+}

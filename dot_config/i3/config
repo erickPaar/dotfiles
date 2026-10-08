@@ -1,0 +1,250 @@
+# i3 config - v4
+# Mod key: Super (Windows key)
+set $mod Mod4
+
+# Terminal
+set $term wezterm
+
+# Font
+font pango:FiraCode Nerd Font 10
+
+# ─── Autostart ───────────────────────────────────────────────────────
+exec --no-startup-id dex --autostart --environment i3
+exec --no-startup-id xss-lock --transfer-sleep-lock -- ~/.config/i3/lock.sh
+# snixembed must start before SNI-only tray apps (librepods) — --fork waits for the bus name
+exec --no-startup-id ~/.local/bin/snixembed --fork
+exec --no-startup-id dunst
+exec --no-startup-id /usr/lib/policykit-1-gnome/polkit-gnome-authentication-agent-1
+exec --no-startup-id ~/bin/librepods --no-tray
+
+# Input: keyboard layout, touchpad, cursor
+exec --no-startup-id setxkbmap -layout br,us -option grp:alt_shift_toggle
+exec --no-startup-id xinput set-prop "VEN_27C6:00 27C6:0D53 Touchpad" "libinput Tapping Enabled" 1
+exec --no-startup-id xinput set-prop "VEN_27C6:00 27C6:0D53 Touchpad" "libinput Natural Scrolling Enabled" 1
+exec --no-startup-id xsetroot -cursor_name left_ptr
+
+# Display: autorandr detects monitors, postswitch handles compositor + polybar + wallpaper + keyboard
+exec --no-startup-id autorandr --change --default mobile --force
+
+# ─── Appearance ──────────────────────────────────────────────────────
+# Gaps
+gaps inner 8
+gaps outer 4
+
+# Borders
+default_border pixel 4
+default_floating_border pixel 4
+for_window [all] title_window_icon padding 3px
+hide_edge_borders none
+
+# Colors              border  bg      text    indicator child_border
+client.focused          #7aa2f7 #1a1b26 #c0caf5 #7dcfff   #7aa2f7
+client.focused_inactive #414868 #1a1b26 #a9b1d6 #414868   #414868
+client.unfocused        #292e42 #1a1b26 #565f89 #292e42   #292e42
+client.urgent           #f7768e #1a1b26 #c0caf5 #f7768e   #f7768e
+client.placeholder      #1a1b26 #1a1b26 #c0caf5 #1a1b26   #1a1b26
+client.background       #1a1b26
+
+# ─── Key Bindings ────────────────────────────────────────────────────
+# Terminal
+bindsym $mod+Return exec $term
+
+# Kill focused window
+bindsym $mod+Shift+q kill
+
+# Application launcher (rofi)
+bindsym $mod+d exec --no-startup-id rofi -show drun -theme ~/.config/rofi/config.rasi
+bindsym $mod+Tab exec --no-startup-id rofi -show window -theme ~/.config/rofi/config.rasi
+
+# Screenshots (flameshot)
+bindsym Print exec --no-startup-id flameshot gui
+bindsym $mod+Print exec --no-startup-id flameshot full -p ~/Pictures
+bindsym $mod+Shift+Print exec --no-startup-id flameshot screen -p ~/Pictures
+
+# Lock screen
+bindsym $mod+Escape exec --no-startup-id ~/.config/i3/lock.sh
+
+# ─── Audio / Brightness ─────────────────────────────────────────────
+bindsym XF86AudioRaiseVolume exec --no-startup-id wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+
+bindsym XF86AudioLowerVolume exec --no-startup-id wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-
+bindsym XF86AudioMute exec --no-startup-id wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle
+bindsym XF86AudioMicMute exec --no-startup-id wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle
+# Media keys via playerctl (MPRIS — Spotify, browsers, mpv, etc). Bind both Play and PlayPause; firmware differs.
+bindsym XF86AudioPlay exec --no-startup-id playerctl play-pause
+bindsym XF86AudioPause exec --no-startup-id playerctl play-pause
+bindsym XF86AudioNext exec --no-startup-id playerctl next
+bindsym XF86AudioPrev exec --no-startup-id playerctl previous
+# AirPods noise control via LibrePods IPC. Requires librepods-dev (patched build) as the running daemon.
+bindsym $mod+F1 exec --no-startup-id librepods-ctl off
+bindsym $mod+F2 exec --no-startup-id librepods-ctl nc
+bindsym $mod+F3 exec --no-startup-id librepods-ctl transparency
+bindsym $mod+F4 exec --no-startup-id librepods-ctl adaptive
+
+# ─── Window Management ──────────────────────────────────────────────
+floating_modifier $mod
+tiling_drag modifier titlebar
+mouse_warping output
+
+set $center exec --no-startup-id ~/.config/i3/center-mouse.sh
+
+# Focus (vim-style)
+bindsym $mod+h focus left; $center
+bindsym $mod+j focus down; $center
+bindsym $mod+k focus up; $center
+bindsym $mod+l focus right; $center
+
+# Focus (arrow keys)
+bindsym $mod+Left focus left; $center
+bindsym $mod+Down focus down; $center
+bindsym $mod+Up focus up; $center
+bindsym $mod+Right focus right; $center
+
+# Move window (vim-style)
+bindsym $mod+Shift+h move left
+bindsym $mod+Shift+j move down
+bindsym $mod+Shift+k move up
+bindsym $mod+Shift+l move right
+
+# Move window (arrow keys)
+bindsym $mod+Shift+Left move left
+bindsym $mod+Shift+Down move down
+bindsym $mod+Shift+Up move up
+bindsym $mod+Shift+Right move right
+
+# Split orientation
+bindsym $mod+b split h
+bindsym $mod+v split v
+
+# Fullscreen
+bindsym $mod+f fullscreen toggle
+
+# Layout
+bindsym $mod+s layout stacking
+bindsym $mod+w layout tabbed
+bindsym $mod+e layout toggle split
+
+# Floating
+bindsym $mod+Shift+space floating toggle
+bindsym $mod+space focus mode_toggle
+
+# Parent/child focus
+bindsym $mod+a focus parent
+bindsym $mod+z focus child
+
+# Move workspace to other monitor
+bindsym $mod+o exec --no-startup-id ~/.config/i3/move-workspace.sh
+
+# Gather all workspaces to current monitor (after unplug)
+bindsym $mod+Shift+o exec --no-startup-id ~/.config/i3/gather-workspaces.sh
+
+# Flatten workspace (fix nested containers)
+bindsym $mod+Shift+f exec --no-startup-id ~/.config/i3/flatten.sh
+
+# Scratchpad
+bindsym $mod+Shift+minus move scratchpad
+bindsym $mod+minus scratchpad show
+
+# AWS VPN Client: sticky floating during the connect flow (browser SSO tab spans
+# workspaces), then $mod+Shift+v toggles to scratchpad once you're connected.
+for_window [class="AWS VPN Client"] floating enable, resize set 500 400, move position center, sticky enable
+bindsym $mod+Shift+v exec --no-startup-id ~/.config/i3/awsvpn-toggle.sh
+
+# 1Password: same pattern as AWS VPN — sticky-visible while you need it, scratchpad otherwise.
+for_window [class="1Password"] floating enable, resize set 900 700, move position center, sticky enable
+bindsym $mod+p exec --no-startup-id ~/.config/i3/1password-toggle.sh
+
+# Relaunch polybar
+bindsym $mod+Shift+p exec --no-startup-id ~/.config/polybar/launch.sh
+
+# Re-apply keyboard layout
+bindsym $mod+Ctrl+k exec --no-startup-id ~/.config/i3/fix-keyboard.sh
+
+# ─── Gaps Adjustment ────────────────────────────────────────────────
+bindsym $mod+g gaps inner current plus 4
+bindsym $mod+Shift+g gaps inner current minus 4
+bindsym $mod+Ctrl+g gaps inner current set 0
+
+# ─── Workspaces ──────────────────────────────────────────────────────
+set $ws1 "1"
+set $ws2 "2"
+set $ws3 "3"
+set $ws4 "4"
+set $ws5 "5"
+set $ws6 "6"
+set $ws7 "7"
+set $ws8 "8"
+set $ws9 "9"
+set $ws10 "10"
+
+# Pin workspaces to outputs (HDMI-1 preferred, eDP-1 fallback when undocked)
+workspace $ws1 output eDP-1
+workspace $ws2 output HDMI-1 DP-1 eDP-1
+workspace $ws3 output HDMI-1 DP-1 eDP-1
+workspace $ws4 output HDMI-1 DP-1 eDP-1
+workspace $ws5 output HDMI-1 DP-1 eDP-1
+workspace $ws6 output HDMI-1 DP-1 eDP-1
+
+# Switch to workspace
+bindsym $mod+1 workspace number $ws1
+bindsym $mod+2 workspace number $ws2
+bindsym $mod+3 workspace number $ws3
+bindsym $mod+4 workspace number $ws4
+bindsym $mod+5 workspace number $ws5
+bindsym $mod+6 workspace number $ws6
+bindsym $mod+7 workspace number $ws7
+bindsym $mod+8 workspace number $ws8
+bindsym $mod+9 workspace number $ws9
+bindsym $mod+0 workspace number $ws10
+
+# Move container to workspace
+bindsym $mod+Shift+1 move container to workspace number $ws1
+bindsym $mod+Shift+2 move container to workspace number $ws2
+bindsym $mod+Shift+3 move container to workspace number $ws3
+bindsym $mod+Shift+4 move container to workspace number $ws4
+bindsym $mod+Shift+5 move container to workspace number $ws5
+bindsym $mod+Shift+6 move container to workspace number $ws6
+bindsym $mod+Shift+7 move container to workspace number $ws7
+bindsym $mod+Shift+8 move container to workspace number $ws8
+bindsym $mod+Shift+9 move container to workspace number $ws9
+bindsym $mod+Shift+0 move container to workspace number $ws10
+
+# Cycle workspaces on current monitor
+bindsym $mod+Ctrl+Left workspace prev_on_output
+bindsym $mod+Ctrl+Right workspace next_on_output
+bindsym $mod+Ctrl+h workspace prev_on_output
+bindsym $mod+Ctrl+l workspace next_on_output
+
+# ─── Resize Mode ─────────────────────────────────────────────────────
+mode "resize" {
+        bindsym h resize shrink width 5 px or 5 ppt
+        bindsym j resize grow height 5 px or 5 ppt
+        bindsym k resize shrink height 5 px or 5 ppt
+        bindsym l resize grow width 5 px or 5 ppt
+
+        bindsym Left resize shrink width 5 px or 5 ppt
+        bindsym Down resize grow height 5 px or 5 ppt
+        bindsym Up resize shrink height 5 px or 5 ppt
+        bindsym Right resize grow width 5 px or 5 ppt
+
+        bindsym Return mode "default"
+        bindsym Escape mode "default"
+        bindsym $mod+r mode "default"
+}
+
+bindsym $mod+r mode "resize"
+
+# ─── Floating Rules ──────────────────────────────────────────────────
+for_window [window_role="pop-up"] floating enable
+for_window [window_role="task_dialog"] floating enable
+for_window [class="Pavucontrol"] floating enable
+for_window [class="Nm-connection-editor"] floating enable
+for_window [class="Blueman-manager"] floating enable
+for_window [title="File Transfer*"] floating enable
+
+# ─── i3 Management ───────────────────────────────────────────────────
+bindsym $mod+Shift+c reload
+bindsym $mod+Shift+r restart
+bindsym $mod+Shift+e exec "i3-nagbar -t warning -m 'Exit i3?' -B 'Yes, exit' 'i3-msg exit'"
+
+# ─── Bar ─────────────────────────────────────────────────────────────
+exec --no-startup-id ~/.config/polybar/launch.sh

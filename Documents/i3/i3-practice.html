@@ -1,0 +1,1134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>i3wm — Interactive Practice</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'FiraCode Nerd Font', 'Fira Code', Consolas, monospace;
+  background: #1a1b26;
+  color: #c0caf5;
+  font-size: 14px;
+}
+
+.app {
+  display: flex;
+  height: 100vh;
+}
+
+/* Sidebar */
+.sidebar {
+  width: 260px;
+  background: #16161e;
+  border-right: 1px solid #2f3549;
+  padding: 16px;
+  overflow-y: auto;
+  flex-shrink: 0;
+  transition: margin-left 0.2s ease;
+}
+
+.sidebar.collapsed {
+  margin-left: -260px;
+}
+
+.sidebar h1 { color: #7aa2f7; font-size: 18px; margin-bottom: 4px; }
+.sidebar .subtitle { color: #565f89; font-size: 11px; margin-bottom: 16px; display: block; }
+
+.sidebar-toggle {
+  position: fixed;
+  left: 8px;
+  top: 8px;
+  z-index: 100;
+  background: #24283b;
+  border: 1px solid #2f3549;
+  color: #7aa2f7;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: left 0.2s ease;
+}
+
+.sidebar-toggle.shifted { left: 268px; }
+.sidebar-toggle:hover { background: #2f3549; }
+
+/* Main content */
+.content {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+h1 { color: #7aa2f7; font-size: 22px; margin-bottom: 4px; }
+.subtitle { color: #565f89; font-size: 12px; margin-bottom: 24px; }
+
+/* Layout */
+.main {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 20px;
+}
+
+/* Tree panel */
+.tree-panel {
+  background: #24283b;
+  border-radius: 10px;
+  padding: 20px;
+  border: 1px solid #2f3549;
+  min-height: 400px;
+}
+
+.tree-panel h2 { color: #7aa2f7; font-size: 14px; margin-bottom: 12px; }
+
+#tree-view {
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+#tree-view .node-ws { color: #bb9af7; }
+#tree-view .node-layout { color: #7aa2f7; }
+#tree-view .node-window { color: #9ece6a; }
+#tree-view .node-focused { color: #f7768e; font-weight: bold; }
+#tree-view .node-branch { color: #414868; }
+
+/* Screen preview */
+.screen-panel {
+  background: #24283b;
+  border-radius: 10px;
+  padding: 16px;
+  border: 1px solid #2f3549;
+  margin-top: 16px;
+}
+
+.screen-panel h2 { color: #7aa2f7; font-size: 14px; margin-bottom: 12px; }
+
+#screen-preview {
+  background: #1a1b26;
+  border: 2px solid #414868;
+  border-radius: 6px;
+  height: 200px;
+  position: relative;
+  overflow: hidden;
+}
+
+.win {
+  position: absolute;
+  border: 2px solid #414868;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  transition: all 0.2s ease;
+  overflow: hidden;
+}
+
+.win.focused { border-color: #7aa2f7; background: rgba(122,162,247,0.1); }
+.win:not(.focused) { background: rgba(36,40,59,0.8); }
+.win .win-name { color: #c0caf5; }
+
+.tab-bar-preview {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 18px;
+  display: flex;
+  font-size: 9px;
+  gap: 1px;
+}
+
+.tab-bar-preview .tab-item {
+  padding: 2px 8px;
+  background: #24283b;
+  color: #565f89;
+  flex: 1;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.tab-bar-preview .tab-item.active {
+  background: #7aa2f7;
+  color: #1a1b26;
+}
+
+/* Side panel */
+.side-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Commands */
+.cmd-panel {
+  background: #24283b;
+  border-radius: 10px;
+  padding: 16px;
+  border: 1px solid #2f3549;
+}
+
+.cmd-panel h2 { color: #e0af68; font-size: 14px; margin-bottom: 12px; }
+
+.cmd-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.cmd-btn {
+  background: #1a1b26;
+  border: 1px solid #2f3549;
+  border-radius: 6px;
+  padding: 8px 10px;
+  color: #c0caf5;
+  font-family: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s;
+}
+
+.cmd-btn:hover { border-color: #7aa2f7; background: #1a2030; }
+.cmd-btn:active { transform: scale(0.97); }
+.cmd-btn .key { color: #7aa2f7; font-weight: bold; display: block; font-size: 12px; }
+.cmd-btn .desc { color: #565f89; font-size: 10px; }
+
+.cmd-section { font-size: 11px; color: #565f89; padding: 6px 0 2px; grid-column: 1 / -1; border-top: 1px solid #2f3549; margin-top: 4px; }
+.cmd-section:first-child { border-top: none; margin-top: 0; }
+
+/* Exercise panel (in sidebar) */
+.exercise-panel h2 { color: #9ece6a; font-size: 13px; margin-bottom: 10px; }
+
+#exercise-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ex-item {
+  padding: 6px 10px;
+  background: #1a1b26;
+  border: 1px solid #2f3549;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 11px;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ex-item:hover { border-color: #7aa2f7; }
+.ex-item.active { border-color: #9ece6a; background: rgba(158,206,106,0.05); }
+.ex-item.completed { opacity: 0.5; }
+.ex-item .ex-num { color: #7aa2f7; font-weight: bold; min-width: 20px; }
+.ex-item .ex-name { color: #c0caf5; }
+.ex-item .ex-check { color: #9ece6a; margin-left: auto; }
+
+/* Goal display */
+.goal-panel {
+  background: #24283b;
+  border-radius: 10px;
+  padding: 16px;
+  border: 1px solid #2f3549;
+}
+
+.goal-panel h2 { color: #bb9af7; font-size: 14px; margin-bottom: 8px; }
+.goal-panel .goal-desc { color: #565f89; font-size: 12px; margin-bottom: 10px; line-height: 1.5; }
+
+#goal-tree {
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre;
+  background: #1a1b26;
+  padding: 10px;
+  border-radius: 6px;
+  color: #565f89;
+}
+
+
+/* Status */
+.status-bar {
+  margin-top: 16px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  text-align: center;
+  font-weight: 600;
+  transition: all 0.3s;
+}
+
+.status-bar.working { background: #24283b; color: #565f89; border: 1px solid #2f3549; }
+.status-bar.success { background: rgba(158,206,106,0.1); color: #9ece6a; border: 1px solid #9ece6a; }
+.status-bar.hint { background: rgba(224,175,104,0.1); color: #e0af68; border: 1px solid #e0af68; }
+
+/* History */
+.history-panel {
+  margin-top: 16px;
+  background: #24283b;
+  border-radius: 10px;
+  padding: 12px 16px;
+  border: 1px solid #2f3549;
+}
+
+.history-panel h2 {
+  color: #565f89;
+  font-size: 12px;
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.history-panel .step-count { color: #414868; font-weight: normal; }
+
+.history-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.history-item {
+  background: #1a1b26;
+  border: 1px solid #2f3549;
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 11px;
+  color: #7aa2f7;
+  white-space: nowrap;
+}
+
+.history-item .desc { color: #565f89; margin-left: 4px; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <button class="sidebar-toggle shifted" id="sidebar-toggle" onclick="toggleSidebar()">&#9776;</button>
+
+  <div class="sidebar" id="sidebar">
+    <h1>i3 Practice</h1>
+    <span class="subtitle">Match the goal tree to complete each exercise.</span>
+    <div class="exercise-panel">
+      <h2>Exercises</h2>
+      <div id="exercise-list"></div>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="main">
+      <div>
+        <div id="status" class="status-bar working">Select an exercise to begin</div>
+        <div class="tree-panel" style="margin-top: 16px;">
+          <h2>Container Tree <span style="color:#565f89;font-weight:normal;font-size:11px;">(i3tree)</span></h2>
+          <div id="tree-view"></div>
+        </div>
+        <div class="screen-panel">
+          <h2>Screen Preview</h2>
+          <div id="screen-preview"></div>
+        </div>
+        <div class="history-panel">
+          <h2>Steps <span id="step-count" class="step-count"></span></h2>
+          <div id="history" class="history-list"></div>
+        </div>
+      </div>
+
+      <div class="side-panel">
+        <div class="goal-panel">
+          <h2>Goal</h2>
+          <div id="goal-desc" class="goal-desc">Select an exercise from the sidebar.</div>
+          <div id="goal-tree"></div>
+        </div>
+
+        <div class="cmd-panel">
+          <h2>Commands</h2>
+          <div class="cmd-grid">
+            <div class="cmd-section">Open / Close</div>
+            <button class="cmd-btn" onclick="cmd('open')"><span class="key">$mod+Return</span><span class="desc">Open terminal</span></button>
+            <button class="cmd-btn" onclick="cmd('close')"><span class="key">$mod+Shift+q</span><span class="desc">Close window</span></button>
+
+            <div class="cmd-section">Focus</div>
+            <button class="cmd-btn" onclick="cmd('focus_left')"><span class="key">$mod+h</span><span class="desc">Focus left</span></button>
+            <button class="cmd-btn" onclick="cmd('focus_right')"><span class="key">$mod+l</span><span class="desc">Focus right</span></button>
+            <button class="cmd-btn" onclick="cmd('focus_up')"><span class="key">$mod+k</span><span class="desc">Focus up</span></button>
+            <button class="cmd-btn" onclick="cmd('focus_down')"><span class="key">$mod+j</span><span class="desc">Focus down</span></button>
+
+            <div class="cmd-section">Split direction (next window)</div>
+            <button class="cmd-btn" onclick="cmd('split_h')"><span class="key">$mod+b</span><span class="desc">Next window right</span></button>
+            <button class="cmd-btn" onclick="cmd('split_v')"><span class="key">$mod+v</span><span class="desc">Next window below</span></button>
+
+            <div class="cmd-section">Parent / Child</div>
+            <button class="cmd-btn" onclick="cmd('focus_parent')"><span class="key">$mod+a</span><span class="desc">Focus parent</span></button>
+            <button class="cmd-btn" onclick="cmd('focus_child')"><span class="key">$mod+z</span><span class="desc">Focus child</span></button>
+
+            <div class="cmd-section">Layout (existing siblings)</div>
+            <button class="cmd-btn" onclick="cmd('layout_toggle')"><span class="key">$mod+e</span><span class="desc">Toggle H/V</span></button>
+            <button class="cmd-btn" onclick="cmd('layout_tabbed')"><span class="key">$mod+w</span><span class="desc">Tabbed</span></button>
+            <button class="cmd-btn" onclick="cmd('layout_stacked')"><span class="key">$mod+s</span><span class="desc">Stacked</span></button>
+
+            <div class="cmd-section">Tools</div>
+            <button class="cmd-btn" onclick="cmd('flatten')"><span class="key">$mod+Shift+f</span><span class="desc">Flatten</span></button>
+            <button class="cmd-btn" onclick="cmd('reset')"><span class="key">Reset</span><span class="desc">Start over</span></button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Sidebar toggle ─────────────────────────────────
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const btn = document.getElementById('sidebar-toggle');
+  sidebar.classList.toggle('collapsed');
+  btn.classList.toggle('shifted');
+}
+
+// ── i3 Tree Simulator ──────────────────────────────
+let nextId = 1;
+let terminalCount = 0;
+let tree = null;
+let currentExercise = null;
+let history = [];
+let focusedContainer = null; // When $mod+a is used, this holds the focused container
+
+function makeNode(layout, name) {
+  return { id: nextId++, layout, name: name || null, children: [], focused: false, splitDir: 'h' };
+}
+
+function makeWorkspace() {
+  terminalCount = 0;
+  const ws = makeNode('splith');
+  ws.isWorkspace = true;
+  ws.name = 'WS 9';
+  return ws;
+}
+
+function findFocusedNode(node) {
+  // Returns the focused node — either a leaf or a container if $mod+a was used
+  if (focusedContainer) return focusedContainer;
+  return findFocused(node);
+}
+
+function findFocused(node) {
+  if (node.focused && !node.children.length) return node;
+  for (const c of node.children) {
+    const f = findFocused(c);
+    if (f) return f;
+  }
+  return null;
+}
+
+function findParent(root, target) {
+  for (const c of root.children) {
+    if (c.id === target.id) return root;
+    const p = findParent(c, target);
+    if (p) return p;
+  }
+  return null;
+}
+
+function getAllLeaves(node) {
+  if (!node.children.length && node.name && !node.isWorkspace) return [node];
+  let leaves = [];
+  for (const c of node.children) leaves.push(...getAllLeaves(c));
+  return leaves;
+}
+
+function clearFocus(node) {
+  node.focused = false;
+  node.children.forEach(c => clearFocus(c));
+}
+
+function setFocus(node) {
+  clearFocus(tree);
+  node.focused = true;
+}
+
+function getLeafIndex(parent, leaf) {
+  const leaves = getAllLeaves(parent);
+  return leaves.findIndex(l => l.id === leaf.id);
+}
+
+// ── Commands ────────────────────────────────────────
+function cmd(action) {
+  const focused = findFocused(tree);
+
+  switch(action) {
+    case 'open': {
+      terminalCount++;
+      const newWin = makeNode('splith', 'bash ' + terminalCount);
+      newWin.focused = true;
+
+      if (!tree.children.length) {
+        clearFocus(tree);
+        tree.children.push(newWin);
+      } else if (focused) {
+        const parent = findParent(tree, focused);
+        if (!parent) break;
+        clearFocus(tree);
+
+        if (focused.splitDir === 'v') {
+          // Create a splitv container wrapping focused + new
+          const container = makeNode('splitv');
+          const idx = parent.children.indexOf(focused);
+          focused.splitDir = 'h';
+          parent.children.splice(idx, 1, container);
+          container.children.push(focused, newWin);
+        } else if (focused.splitDir === 'h') {
+          const idx = parent.children.indexOf(focused);
+          if (parent.layout === 'tabbed' || parent.layout === 'stacked') {
+            parent.children.push(newWin);
+          } else {
+            parent.children.splice(idx + 1, 0, newWin);
+          }
+        }
+      }
+      addHistory('$mod+Return', 'Open terminal');
+      break;
+    }
+
+    case 'close': {
+      if (!focused) break;
+      const parent = findParent(tree, focused);
+      if (!parent) break;
+      parent.children = parent.children.filter(c => c.id !== focused.id);
+
+      // If container has 1 child, unwrap it
+      if (parent.children.length === 1 && !parent.isWorkspace) {
+        const grandparent = findParent(tree, parent);
+        if (grandparent) {
+          const idx = grandparent.children.indexOf(parent);
+          grandparent.children.splice(idx, 1, parent.children[0]);
+        }
+      }
+
+      // Focus something
+      const leaves = getAllLeaves(tree);
+      if (leaves.length > 0) {
+        clearFocus(tree);
+        leaves[leaves.length - 1].focused = true;
+      }
+      addHistory('$mod+Shift+q', 'Close window');
+      break;
+    }
+
+    case 'split_v': {
+      if (focused) focused.splitDir = 'v';
+      addHistory('$mod+v', 'Set vertical split');
+      break;
+    }
+
+    case 'split_h': {
+      if (focused) focused.splitDir = 'h';
+      addHistory('$mod+b', 'Set horizontal split');
+      break;
+    }
+
+    case 'focus_parent': {
+      if (!focused) break;
+      const parent = findParent(tree, focused);
+      if (!parent) break;
+      focusedContainer = parent;
+      addHistory('$mod+a', 'Focus parent');
+      break;
+    }
+
+    case 'focus_child': {
+      if (focusedContainer) {
+        focusedContainer = null;
+        addHistory('$mod+z', 'Focus child');
+      }
+      break;
+    }
+
+    case 'layout_toggle': {
+      // Find the target: if focusedContainer is set, operate on its parent
+      const node = focusedContainer || focused;
+      if (!node) break;
+      const target = findParent(tree, node);
+      if (!target) break;
+      if (target.layout === 'splith') target.layout = 'splitv';
+      else target.layout = 'splith';
+      target.children.forEach(c => { if (!c.children.length) c.layout = target.layout; });
+      focusedContainer = null;
+      addHistory('$mod+e', 'Toggle split');
+      checkHint();
+      break;
+    }
+
+    case 'layout_tabbed': {
+      const node = focusedContainer || focused;
+      if (!node) break;
+      const target = findParent(tree, node);
+      if (!target) break;
+      target.layout = 'tabbed';
+      target.children.forEach(c => { if (!c.children.length) c.layout = 'tabbed'; });
+      focusedContainer = null;
+      addHistory('$mod+w', 'Layout tabbed');
+      checkHint();
+      break;
+    }
+
+    case 'layout_stacked': {
+      const node = focusedContainer || focused;
+      if (!node) break;
+      const target = findParent(tree, node);
+      if (!target) break;
+      target.layout = 'stacked';
+      target.children.forEach(c => { if (!c.children.length) c.layout = 'stacked'; });
+      focusedContainer = null;
+      addHistory('$mod+s', 'Layout stacked');
+      checkHint();
+      break;
+    }
+
+    case 'focus_left':
+    case 'focus_right':
+    case 'focus_up':
+    case 'focus_down': {
+      if (!focused) break;
+      focusedContainer = null;
+      const parent = findParent(tree, focused);
+      if (!parent) break;
+      const siblings = parent.children;
+      const idx = siblings.indexOf(focused);
+      let nextIdx = idx;
+
+      if (action === 'focus_left' || action === 'focus_up') {
+        nextIdx = Math.max(0, idx - 1);
+      } else {
+        nextIdx = Math.min(siblings.length - 1, idx + 1);
+      }
+
+      const target = siblings[nextIdx];
+      const leaves = getAllLeaves(target);
+      if (leaves.length > 0) {
+        clearFocus(tree);
+        leaves[0].focused = true;
+      }
+
+      const dirs = { focus_left: '$mod+h', focus_right: '$mod+l', focus_up: '$mod+k', focus_down: '$mod+j' };
+      addHistory(dirs[action], 'Focus ' + action.split('_')[1]);
+      break;
+    }
+
+    case 'flatten': {
+      const leaves = getAllLeaves(tree);
+      tree.children = leaves;
+      tree.layout = 'splith';
+      if (leaves.length > 0) {
+        clearFocus(tree);
+        leaves[0].focused = true;
+      }
+      focusedContainer = null;
+      addHistory('$mod+Shift+f', 'Flatten');
+      break;
+    }
+
+    case 'reset': {
+      focusedContainer = null;
+      if (currentExercise) loadExercise(currentExercise);
+      else { tree = makeWorkspace(); }
+      history = [];
+      document.getElementById('history').innerHTML = '';
+      document.getElementById('step-count').textContent = '';
+      break;
+    }
+  }
+
+  render();
+  checkGoal();
+}
+
+// ── Hint system ─────────────────────────────────────
+function checkHint() {
+  if (currentExercise === null) return;
+  const ex = exercises[currentExercise];
+  if (ex.hint && ex.hint()) {
+    const statusEl = document.getElementById('status');
+    statusEl.className = 'status-bar hint';
+    statusEl.innerHTML = ex.hintText || 'Something went wrong. Press Reset to try again.';
+  }
+}
+
+// ── Render tree text ────────────────────────────────
+function renderTreeText(node, indent) {
+  let lines = [];
+  const layoutClass = node.isWorkspace ? 'node-ws' : 'node-layout';
+  const prefix = '  '.repeat(indent);
+
+  const isContainerFocused = focusedContainer && focusedContainer.id === node.id;
+  const containerMarker = isContainerFocused ? ' <span class="node-focused">&lt;-- parent focus</span>' : '';
+
+  if (node.isWorkspace) {
+    lines.push(`<span class="node-ws">${node.name} [${node.layout}]</span>${containerMarker}`);
+  } else if (node.children.length > 0) {
+    lines.push(`<span class="node-branch">${prefix}</span><span class="node-layout">[${node.layout}]</span>${containerMarker}`);
+  } else if (node.name) {
+    const cls = node.focused ? 'node-focused' : 'node-window';
+    const marker = node.focused ? ' <--' : '';
+    lines.push(`<span class="node-branch">${prefix}</span><span class="${cls}">[${node.layout}] ${node.name}${marker}</span>`);
+  }
+
+  for (const c of node.children) {
+    lines.push(...renderTreeText(c, indent + 1));
+  }
+  return lines;
+}
+
+// ── Render screen preview ───────────────────────────
+function renderScreen(node, x, y, w, h, container) {
+  if (!node.children.length && node.name) {
+    // Leaf window
+    const div = document.createElement('div');
+    div.className = 'win' + (node.focused ? ' focused' : '');
+    div.style.left = x + 'px';
+    div.style.top = y + 'px';
+    div.style.width = Math.max(w - 4, 10) + 'px';
+    div.style.height = Math.max(h - 4, 10) + 'px';
+    div.innerHTML = `<span class="win-name">${node.name}</span>`;
+    container.appendChild(div);
+    return;
+  }
+
+  if (node.layout === 'tabbed' || node.layout === 'stacked') {
+    // Draw tab bar
+    const tabH = 18;
+    const barDiv = document.createElement('div');
+    barDiv.className = 'tab-bar-preview';
+    barDiv.style.left = x + 'px';
+    barDiv.style.top = y + 'px';
+    barDiv.style.width = w + 'px';
+
+    const focusedLeaf = findFocused(node);
+    let activeChild = null;
+
+    for (const c of node.children) {
+      const tab = document.createElement('div');
+      const leaves = getAllLeaves(c);
+      const isActive = leaves.some(l => l.focused);
+      if (isActive) activeChild = c;
+      tab.className = 'tab-item' + (isActive ? ' active' : '');
+      tab.textContent = (c.name || (leaves[0] && leaves[0].name) || '?');
+      barDiv.appendChild(tab);
+    }
+    container.appendChild(barDiv);
+
+    // Draw active child content
+    if (activeChild) {
+      renderScreen(activeChild, x, y + tabH, w, h - tabH, container);
+    } else if (node.children.length > 0) {
+      renderScreen(node.children[0], x, y + tabH, w, h - tabH, container);
+    }
+    return;
+  }
+
+  // Split layout
+  const isH = node.layout === 'splith';
+  const count = node.children.length;
+  if (count === 0) return;
+
+  node.children.forEach((c, i) => {
+    if (isH) {
+      const cw = w / count;
+      renderScreen(c, x + i * cw, y, cw, h, container);
+    } else {
+      const ch = h / count;
+      renderScreen(c, x, y + i * ch, w, ch, container);
+    }
+  });
+}
+
+// ── Render ──────────────────────────────────────────
+function render() {
+  // Tree text
+  const treeEl = document.getElementById('tree-view');
+  const lines = renderTreeText(tree, 0);
+  treeEl.innerHTML = lines.join('\n');
+
+  // Screen preview
+  const preview = document.getElementById('screen-preview');
+  preview.innerHTML = '';
+  const rect = preview.getBoundingClientRect();
+  renderScreen(tree, 2, 2, rect.width - 4, rect.height - 4, preview);
+}
+
+// ── History ─────────────────────────────────────────
+function addHistory(key, desc) {
+  history.push({ key, desc });
+  const el = document.getElementById('history');
+  const chip = document.createElement('span');
+  chip.className = 'history-item';
+  chip.innerHTML = `${key}<span class="desc">${desc}</span>`;
+  el.appendChild(chip);
+  document.getElementById('step-count').textContent = `(${history.length})`;
+}
+
+// ── Exercises ───────────────────────────────────────
+const exercises = [
+  {
+    name: '1. The core rule',
+    desc: 'Layout commands ($mod+e, $mod+w, $mod+s) operate on the PARENT of the focused window. Focus either terminal and press $mod+e — it changes the workspace layout because the workspace is the parent.',
+    lesson: '<strong>What happened:</strong> You pressed $mod+e on a window. The command changed the <em>workspace layout</em> from splith to splitv — because the workspace is the parent of both windows.\n\n<strong>The core rule:</strong> Layout commands always operate on the parent container of the focused node. They never change the window itself — they change how the parent arranges its children.\n\n<strong>Why this matters:</strong> When you have nested containers (lesson 4+), this rule determines which container changes. Focus a window inside a sub-group → the sub-group changes. Focus a window directly in the workspace → the workspace changes.\n\n<strong>Next:</strong> Try lesson 2 to see how this same rule applies to tabbing and untabbing.',
+    goal: 'WS 9 [splitv]\n  [splitv] bash 1\n  [splitv] bash 2',
+    setup: () => {
+      tree = makeWorkspace();
+      terminalCount = 2;
+      const t1 = makeNode('splith', 'bash 1');
+      const t2 = makeNode('splith', 'bash 2'); t2.focused = true;
+      tree.children = [t1, t2];
+    },
+    check: () => tree.layout === 'splitv' && tree.children.length === 2 && !tree.children.some(c => c.children.length)
+  },
+  {
+    name: '2. Tab and untab',
+    desc: '$mod+w changes the parent layout to tabbed. $mod+e changes it back to split. These are the same rule — both change the PARENT. Try: $mod+w to tab, then $mod+e to untab.',
+    lesson: '<strong>What happened:</strong> $mod+w changed the workspace to tabbed. $mod+e changed it back to split. Both operated on the same parent — the workspace.\n\n<strong>Key insight:</strong> $mod+e is the universal "undo" for any layout. Tabbed? $mod+e → split. Stacked? $mod+e → split. It always brings you back to tiled windows.\n\n<strong>Three layout commands, one rule:</strong>\n• $mod+e → toggle between horizontal and vertical split\n• $mod+w → tabbed (windows share space, tab bar on top)\n• $mod+s → stacked (like tabbed but vertical title list)\n\nAll three change the parent. All three are undone by $mod+e.\n\n<strong>Next:</strong> Lesson 3 introduces the other kind of command — $mod+v — which works completely differently.',
+    goal: 'WS 9 [splith]\n  [splith] bash 1\n  [splith] bash 2',
+    setup: () => {
+      tree = makeWorkspace();
+      terminalCount = 2;
+      const t1 = makeNode('splith', 'bash 1');
+      const t2 = makeNode('splith', 'bash 2'); t2.focused = true;
+      tree.children = [t1, t2];
+    },
+    check: () => (tree.layout === 'splith' || tree.layout === 'splitv') && tree.children.length === 2
+  },
+  {
+    name: '3. $mod+v does nothing visible',
+    desc: '$mod+v and $mod+b set a hidden flag — where the NEXT new window opens. They don\'t change the tree. Try pressing $mod+v — nothing happens. Then press $mod+Return — NOW the tree changes. The new window appears BELOW because of the $mod+v flag.',
+    lesson: '<strong>What happened:</strong> $mod+v did nothing visible. Then $mod+Return opened a new window BELOW the focused one, creating a [splitv] sub-container.\n\n<strong>The two kinds of commands:</strong>\n• <em>$mod+v / $mod+b</em> — set a hidden flag. No visual change. Only affects where the NEXT new window appears.\n• <em>$mod+e / $mod+w / $mod+s</em> — change existing layout immediately.\n\nThese look similar but do completely different things. $mod+v prepares for the future. $mod+e changes the present.\n\n<strong>Key insight:</strong> When you pressed $mod+v then $mod+Return, i3 created a new [splitv] container wrapping the old window and the new one. This is how sub-groups are born — not by selecting windows, but by marking a split direction and opening a window.\n\n<strong>Next:</strong> Lesson 4 uses this to build a real layout with independent groups.',
+    goal: 'WS 9 [splith]\n  [splith] bash 1\n  [splitv]\n    [splitv] bash 2\n    [splitv] bash 3',
+    setup: () => {
+      tree = makeWorkspace();
+      terminalCount = 2;
+      const t1 = makeNode('splith', 'bash 1');
+      const t2 = makeNode('splith', 'bash 2'); t2.focused = true;
+      tree.children = [t1, t2];
+    },
+    check: () => {
+      if (tree.children.length !== 2) return false;
+      const right = tree.children[1];
+      return right.children && right.children.length === 2 && right.layout === 'splitv';
+    }
+  },
+  {
+    name: '4. Build a sub-group',
+    desc: 'This is the key skill: creating a container within a container. Open a terminal, then use $mod+v + $mod+Return to create a vertical sub-group on the right. The left terminal stays in the workspace, the right two get their own container.',
+    lesson: '<strong>What happened:</strong> You opened a terminal, opened another (split right), pressed $mod+v on the right one, then opened a third. The third appeared BELOW the second, creating a [splitv] sub-container.\n\n<strong>Look at the tree:</strong>\n• bash 1 is a direct child of the workspace\n• bash 2 and bash 3 are children of a [splitv] container\n• The [splitv] container is a child of the workspace\n\nThese are two different groups. Layout commands on bash 2 or bash 3 will affect the [splitv] container. Layout commands on bash 1 will affect the workspace.\n\n<strong>Why this matters:</strong> This is how you get "terminal on the left, tabbed apps on the right." The sub-container isolates the right side so you can tab it without affecting the left.\n\n<strong>Next:</strong> Lesson 5 proves this — you\'ll change the right side\'s layout without touching the left.',
+    goal: 'WS 9 [splith]\n  [splith] bash 1\n  [splitv]\n    [splitv] bash 2\n    [splitv] bash 3',
+    setup: () => {
+      tree = makeWorkspace();
+      terminalCount = 1;
+      const t1 = makeNode('splith', 'bash 1'); t1.focused = true;
+      tree.children = [t1];
+    },
+    check: () => {
+      if (tree.children.length !== 2) return false;
+      const right = tree.children[1];
+      return right.children && right.children.length === 2 && right.layout === 'splitv';
+    }
+  },
+  {
+    name: '5. Layout only affects the parent',
+    desc: 'The right side is a [splitv] sub-container. Focus a window inside it and press $mod+e — it toggles the SUB-CONTAINER (the parent), not the workspace. The left terminal is unaffected because it\'s in a different container.',
+    lesson: '<strong>What happened:</strong> You focused a window in the right sub-container and pressed $mod+e. Only the right side changed from vertical to horizontal. The left terminal didn\'t move.\n\n<strong>Why it worked:</strong> The focused window\'s parent is the [splitv] sub-container — not the workspace. $mod+e toggled THAT container. The workspace (which holds bash 1 and the sub-container) was untouched.\n\n<strong>This is the payoff of lesson 4:</strong> By creating a sub-container, you made the right side independent. You can change its layout freely without affecting anything outside it.\n\n<strong>The pattern:</strong>\n1. Create sub-containers to group windows (lesson 3-4)\n2. Change their layout independently (this lesson)\n\n<strong>Next:</strong> Lesson 6 uses this same principle to tab only the right side.',
+    goal: 'WS 9 [splith]\n  [splith] bash 1\n  [splith]\n    [splith] bash 2\n    [splith] bash 3',
+    setup: () => {
+      tree = makeWorkspace();
+      terminalCount = 3;
+      const t1 = makeNode('splith', 'bash 1');
+      const container = makeNode('splitv');
+      const t2 = makeNode('splitv', 'bash 2');
+      const t3 = makeNode('splitv', 'bash 3'); t3.focused = true;
+      container.children = [t2, t3];
+      tree.children = [t1, container];
+    },
+    check: () => {
+      if (tree.children.length !== 2) return false;
+      return tree.children[1].layout === 'splith' && tree.children[1].children.length === 2;
+    }
+  },
+  {
+    name: '6. Tab only the right side',
+    desc: 'Same principle: focus a window in the right sub-container and press $mod+w. It tabs only the right side because the parent of the focused window is the sub-container, not the workspace.',
+    lesson: '<strong>What happened:</strong> You focused a window in the right sub-container and pressed $mod+w. The right side became tabbed. The left terminal stayed as-is.\n\n<strong>This is the layout:</strong> Terminal on the left, tabs on the right. The exact setup you want for Claude Code (left) + browser/neovim (right tabs).\n\n<strong>Why $mod+w only tabbed the right side:</strong> The focused window\'s parent was the sub-container, not the workspace. $mod+w changed the sub-container to tabbed. The workspace still holds bash 1 and the (now tabbed) sub-container side by side.\n\n<strong>Without the sub-container:</strong> If all 3 windows were flat in the workspace, $mod+w would tab ALL of them. The sub-container is what makes selective tabbing possible.\n\n<strong>Next:</strong> Lesson 7 shows what happens when you open new windows inside a tabbed container.',
+    goal: 'WS 9 [splith]\n  [splith] bash 1\n  [tabbed]\n    [tabbed] bash 2\n    [tabbed] bash 3',
+    setup: () => {
+      tree = makeWorkspace();
+      terminalCount = 3;
+      const t1 = makeNode('splith', 'bash 1');
+      const container = makeNode('splitv');
+      const t2 = makeNode('splitv', 'bash 2');
+      const t3 = makeNode('splitv', 'bash 3'); t3.focused = true;
+      container.children = [t2, t3];
+      tree.children = [t1, container];
+    },
+    check: () => {
+      if (tree.children.length !== 2) return false;
+      return tree.children[1].layout === 'tabbed' && tree.children[1].children.length === 2;
+    }
+  },
+  {
+    name: '7. New windows join the parent',
+    desc: 'When you open a window inside a tabbed container, it automatically becomes a new tab. No extra commands needed — the new window joins the parent container, and the parent is tabbed.',
+    lesson: '<strong>What happened:</strong> You opened a new terminal while focused inside the tabbed container. It automatically appeared as a third tab.\n\n<strong>Why:</strong> New windows join the parent container of the focused window. The parent is tabbed, so the new window becomes a tab. No extra commands needed.\n\n<strong>This works for all layouts:</strong>\n• Parent is splith → new window appears to the right\n• Parent is splitv → new window appears below\n• Parent is tabbed → new window becomes a new tab\n\n<strong>Practical tip:</strong> Once you\'ve set up your tabbed right side, you can keep opening windows there and they\'ll all become tabs. To add a browser, just focus a right tab and open the browser — it joins as a tab.\n\n<strong>Next:</strong> Lesson 8 puts everything together into the complete dev workspace.',
+    goal: 'WS 9 [splith]\n  [splith] bash 1\n  [tabbed]\n    [tabbed] bash 2\n    [tabbed] bash 3\n    [tabbed] bash 4',
+    setup: () => {
+      tree = makeWorkspace();
+      terminalCount = 3;
+      const t1 = makeNode('splith', 'bash 1');
+      const container = makeNode('tabbed');
+      const t2 = makeNode('tabbed', 'bash 2');
+      const t3 = makeNode('tabbed', 'bash 3'); t3.focused = true;
+      container.children = [t2, t3];
+      tree.children = [t1, container];
+    },
+    check: () => {
+      if (tree.children.length !== 2) return false;
+      return tree.children[1].layout === 'tabbed' && tree.children[1].children.length === 3;
+    }
+  },
+  {
+    name: '8. The dev workspace',
+    desc: 'Put it all together: empty workspace → terminal on the left, two tabbed terminals on the right. Steps: open terminal, open another (splits right), focus right, $mod+v, open third (goes below), $mod+w (tabs the right sub-group).',
+    lesson: '<strong>You built the dev workspace from scratch!</strong>\n\n<strong>The recipe:</strong>\n1. $mod+Return → first terminal (fills screen)\n2. $mod+Return → second terminal (splits right)\n3. $mod+v → mark for vertical split\n4. $mod+Return → third terminal (appears below, creates sub-container)\n5. $mod+w → tab the right sub-container\n\n<strong>In real i3:</strong> The left terminal runs Claude Code. The right tabs hold browser, neovim, gh-dash. Use $mod+j/k to switch tabs.\n\n<strong>Key principles used:</strong>\n• $mod+v creates sub-containers (lesson 3)\n• Layout commands affect the parent (lesson 1)\n• Sub-containers are independent (lesson 5)\n\n<strong>Next:</strong> Lesson 9 teaches you how to recover when things go wrong.',
+    goal: 'WS 9 [splith]\n  [splith] bash 1\n  [tabbed]\n    [tabbed] bash 2\n    [tabbed] bash 3',
+    setup: () => {
+      tree = makeWorkspace();
+      terminalCount = 0;
+    },
+    check: () => {
+      if (tree.children.length !== 2) return false;
+      const left = tree.children[0];
+      const right = tree.children[1];
+      if (left.children.length > 0) return false;
+      return right.layout === 'tabbed' && right.children.length >= 2;
+    }
+  },
+  {
+    name: '9. Fix nesting',
+    desc: 'This tree is deeply nested from toggling tab/split repeatedly. Use $mod+Shift+f to flatten — it moves all windows out and back, removing all intermediate containers.',
+    lesson: '<strong>What happened:</strong> $mod+Shift+f moved all windows to a temporary workspace and back, stripping away all intermediate containers. The tree is now flat.\n\n<strong>When to flatten:</strong>\n• The tree is deeply nested (run i3tree to check)\n• $mod+e or $mod+w affects the wrong windows\n• You\'re confused about what\'s happening\n\n<strong>After flattening:</strong> All windows are flat siblings in the workspace. You can rebuild your layout from scratch using the recipe from lesson 8. Flatten + rebuild takes 10 seconds and is always faster than debugging a tangled tree.\n\n<strong>Congratulations!</strong> You now understand i3\'s container model:\n• Layout commands operate on the parent (lessons 1-2)\n• $mod+v creates sub-containers for the next window (lesson 3)\n• Sub-containers are independent groups (lessons 4-6)\n• New windows join the parent\'s layout (lesson 7)\n• Flatten to recover (this lesson)',
+    goal: 'WS 9 [splith]\n  [splith] bash 1\n  [splith] bash 2\n  [splith] bash 3',
+    setup: () => {
+      tree = makeWorkspace();
+      terminalCount = 3;
+      const c1 = makeNode('splith');
+      const c2 = makeNode('splitv');
+      const c3 = makeNode('splith');
+      const t1 = makeNode('splith', 'bash 1');
+      const t2 = makeNode('splith', 'bash 2');
+      const t3 = makeNode('splith', 'bash 3'); t3.focused = true;
+      c3.children = [t2, t3];
+      c2.children = [c3];
+      c1.children = [t1, c2];
+      tree.children = [c1];
+    },
+    check: () => {
+      return tree.children.length >= 2 && tree.children.every(c => !c.children.length);
+    }
+  },
+
+  // ── ADVANCED LESSONS ────────────────────────────────
+
+  {
+    name: '10. The $mod+a trap',
+    desc: 'You have a terminal on the left and a split group on the right. Try to tab ONLY the right side. But first, try pressing $mod+a then $mod+w — and watch what goes wrong. Then Reset and do it correctly.',
+    lesson: '<strong>What happened:</strong> When you pressed $mod+a, focus moved to the [splitv] container. Then $mod+w operated on that container\'s PARENT — the workspace. So everything got tabbed.\n\n<strong>The trap:</strong> $mod+a moves focus up one level. Layout commands operate on the parent. So $mod+a + $mod+w = two levels up = workspace.\n\n<strong>The fix:</strong> Don\'t use $mod+a before layout commands. Focus a window INSIDE the group and press $mod+w directly. The command reaches the right parent automatically.\n\n<strong>When IS $mod+a useful?</strong> For moving windows or workspaces between monitors. Not for changing layouts.',
+    goal: 'WS 9 [splith]\n  [splith] bash 1\n  [tabbed]\n    [tabbed] bash 2\n    [tabbed] bash 3',
+    hint: () => tree.layout === 'tabbed',
+    hintText: '🪤 <strong>You fell into the $mod+a trap!</strong> Pressing $mod+a then $mod+w tabbed the entire workspace — not just the right side. Press <strong>Reset</strong> and try again: focus bash 2 or bash 3 directly, then press $mod+w without $mod+a.',
+    setup: () => {
+      tree = makeWorkspace();
+      terminalCount = 3;
+      const t1 = makeNode('splith', 'bash 1');
+      const container = makeNode('splitv');
+      const t2 = makeNode('splitv', 'bash 2');
+      const t3 = makeNode('splitv', 'bash 3'); t3.focused = true;
+      container.children = [t2, t3];
+      tree.children = [t1, container];
+    },
+    check: () => {
+      if (tree.children.length !== 2) return false;
+      return tree.layout === 'splith' && tree.children[1].layout === 'tabbed' && tree.children[1].children.length === 2;
+    }
+  },
+  {
+    name: '11. Focus determines the target',
+    desc: 'Same layout, two different goals. First: focus bash 1 (left) and press $mod+e. Watch which container changes. The workspace toggles because bash 1\'s parent is the workspace. If you focused bash 2 or 3 instead, the sub-container would change.',
+    lesson: '<strong>What happened:</strong> You pressed $mod+e while focused on bash 1. Since bash 1\'s parent is the workspace, the workspace layout changed to splitv.\n\n<strong>Key insight:</strong> The SAME command ($mod+e) changes DIFFERENT containers depending on where focus is:\n• Focus bash 1 → changes the workspace (bash 1\'s parent)\n• Focus bash 2 or 3 → changes the sub-container (their parent)\n\n<strong>This is the core rule in action:</strong> Layout commands always operate on the parent of the focused node. Focus determines which parent that is.',
+    goal: 'WS 9 [splitv]\n  [splitv] bash 1\n  [splitv]\n    ...',
+    setup: () => {
+      tree = makeWorkspace();
+      terminalCount = 3;
+      const t1 = makeNode('splith', 'bash 1'); t1.focused = true;
+      const container = makeNode('splitv');
+      const t2 = makeNode('splitv', 'bash 2');
+      const t3 = makeNode('splitv', 'bash 3');
+      container.children = [t2, t3];
+      tree.children = [t1, container];
+    },
+    check: () => {
+      return tree.layout === 'splitv' && tree.children.length === 2;
+    }
+  },
+  {
+    name: '12. Group 2 of 3 flat windows',
+    desc: 'The hardest real scenario: 3 flat windows, tab only the last 2. You CANNOT select 2 windows and group them — there\'s no such command. Instead: focus bash 2, $mod+v, $mod+Return (creates sub-container), then close the extra window, then $mod+w to tab.',
+    lesson: '<strong>What happened:</strong> You created a sub-container around bash 2 by pressing $mod+v + $mod+Return. Then you closed the extra window. Now bash 2 is inside its own container. Then opening a new window there or moving bash 3 in would group them.\n\n<strong>The i3 limitation:</strong> You cannot group existing flat windows directly. The only way to create a sub-container is $mod+v + open a new window. This creates a [splitv] wrapper.\n\n<strong>Practical approach:</strong> It\'s often easier to close windows and reopen them in the right structure. Flatten → close extras → rebuild using the lesson 8 recipe.\n\n<strong>This is why lesson 4 (building sub-groups) is so important:</strong> Plan your layout before opening windows.',
+    goal: 'WS 9 [splith]\n  [splith] bash 1\n  [tabbed]\n    [tabbed] ...\n    [tabbed] ...',
+    setup: () => {
+      tree = makeWorkspace();
+      terminalCount = 3;
+      const t1 = makeNode('splith', 'bash 1');
+      const t2 = makeNode('splith', 'bash 2');
+      const t3 = makeNode('splith', 'bash 3'); t3.focused = true;
+      tree.children = [t1, t2, t3];
+    },
+    check: () => {
+      if (tree.children.length !== 2) return false;
+      const right = tree.children[1];
+      return right.layout === 'tabbed' && right.children.length >= 2;
+    }
+  },
+  {
+    name: '13. Recover and rebuild',
+    desc: 'This tree is a mess — deeply nested from experimentation. Your task: flatten it ($mod+Shift+f), then rebuild into the dev workspace (terminal left, tabs right). Use the recipe: open windows, $mod+v to split, $mod+w to tab.',
+    lesson: '<strong>The recovery pattern:</strong>\n1. $mod+Shift+f — flatten (1 command)\n2. Rebuild from flat — same recipe every time\n\n<strong>Don\'t try to fix nesting by hand.</strong> It\'s always faster to flatten and rebuild. The lesson 8 recipe takes about 5 steps from a flat workspace.\n\n<strong>Prevention:</strong> Set up your layout once and leave it. If you need a different layout, flatten first, then rebuild. Don\'t toggle tab/split on the same windows.',
+    goal: 'WS 9 [splith]\n  [splith] bash ...\n  [tabbed]\n    [tabbed] ...\n    [tabbed] ...',
+    setup: () => {
+      tree = makeWorkspace();
+      terminalCount = 4;
+      const c1 = makeNode('tabbed');
+      const c2 = makeNode('splith');
+      const c3 = makeNode('splitv');
+      const t1 = makeNode('splith', 'bash 1'); t1.focused = true;
+      const t2 = makeNode('splith', 'bash 2');
+      const t3 = makeNode('splith', 'bash 3');
+      const t4 = makeNode('splith', 'bash 4');
+      c3.children = [t3, t4];
+      c2.children = [t2, c3];
+      c1.children = [t1, c2];
+      tree.children = [c1];
+    },
+    check: () => {
+      if (tree.children.length !== 2) return false;
+      const left = tree.children[0];
+      const right = tree.children[1];
+      if (left.children.length > 0) return false;
+      return right.layout === 'tabbed' && right.children.length >= 2;
+    }
+  },
+  {
+    name: '14. Stacked layout',
+    desc: '$mod+s creates a stacked layout — like tabbed but with a vertical title list instead of horizontal tabs. Focus a window in the right sub-container and press $mod+s.',
+    lesson: '<strong>What happened:</strong> $mod+s changed the sub-container to stacked. It works exactly like $mod+w but renders the title list vertically instead of as horizontal tabs.\n\n<strong>Stacked vs Tabbed:</strong>\n• Tabbed ($mod+w) — horizontal tab bar, compact\n• Stacked ($mod+s) — vertical title list, shows more info\n• Both hide non-focused children\n• Both undone by $mod+e\n\n<strong>When to use stacked:</strong> When you have many windows and want to see their full titles. Tabbed is more common for 2-3 windows.',
+    goal: 'WS 9 [splith]\n  [splith] bash 1\n  [stacked]\n    [stacked] bash 2\n    [stacked] bash 3',
+    setup: () => {
+      tree = makeWorkspace();
+      terminalCount = 3;
+      const t1 = makeNode('splith', 'bash 1');
+      const container = makeNode('splitv');
+      const t2 = makeNode('splitv', 'bash 2');
+      const t3 = makeNode('splitv', 'bash 3'); t3.focused = true;
+      container.children = [t2, t3];
+      tree.children = [t1, container];
+    },
+    check: () => {
+      if (tree.children.length !== 2) return false;
+      return tree.children[1].layout === 'stacked' && tree.children[1].children.length === 2;
+    }
+  },
+  {
+    name: '15. 3-pane layout (no tabs)',
+    desc: 'Build from empty: terminal on the left (Claude Code), terminal top-right (neovim), terminal bottom-right (logs). All 3 visible at once — no tabbing. This is the same sub-group from lesson 4 but as a complete workspace.',
+    lesson: '<strong>You built a 3-pane layout!</strong>\n\n<strong>The recipe:</strong>\n1. $mod+Return — first terminal (fills screen)\n2. $mod+Return — second terminal (splits right)\n3. $mod+v — mark vertical split\n4. $mod+Return — third terminal (below the second)\n\n<strong>This is the foundation for all layouts.</strong> From here you can:\n• Tab the right side ($mod+w on bash 2 or 3) → dev workspace\n• Leave it as-is → 3-pane monitoring layout\n• Add more windows to the right sub-container → they stack below\n\n<strong>Key principle:</strong> $mod+v at step 3 creates the sub-container boundary. Everything after that happens inside the right group, independent of the left terminal.',
+    goal: 'WS 9 [splith]\n  [splith] bash 1\n  [splitv]\n    [splitv] bash 2\n    [splitv] bash 3',
+    setup: () => {
+      tree = makeWorkspace();
+      terminalCount = 0;
+    },
+    check: () => {
+      if (tree.children.length !== 2) return false;
+      const right = tree.children[1];
+      return right.children && right.children.length === 2 && right.layout === 'splitv';
+    }
+  }
+];
+
+function loadExercise(idx) {
+  currentExercise = idx;
+  focusedContainer = null;
+  const ex = exercises[idx];
+  ex.setup();
+  history = [];
+  document.getElementById('history').innerHTML = '';
+  document.getElementById('step-count').textContent = '';
+  document.getElementById('goal-desc').textContent = ex.desc;
+  document.getElementById('status').className = 'status-bar working';
+  document.getElementById('status').textContent = ex.name;
+
+  // Build goal tree text
+  const goalTreeEl = document.getElementById('goal-tree');
+  goalTreeEl.textContent = ex.goal || '';
+  goalTreeEl.style.display = ex.goal ? 'block' : 'none';
+
+  // Update exercise list
+  document.querySelectorAll('.ex-item').forEach((el, i) => {
+    el.classList.toggle('active', i === idx);
+  });
+
+  render();
+}
+
+function checkGoal() {
+  if (currentExercise === null) return;
+  const ex = exercises[currentExercise];
+  if (ex.check()) {
+    document.getElementById('status').className = 'status-bar success';
+    const steps = history.length;
+    const statusEl = document.getElementById('status');
+    statusEl.className = 'status-bar success';
+    statusEl.innerHTML = `<strong>${exercises[currentExercise].name} — Completed in ${steps} step${steps !== 1 ? 's' : ''}!</strong>`;
+    const lessonHtml = (exercises[currentExercise].lesson || '').replace(/\n\n/g, '<br><br>').replace(/\n•/g, '<br>•');
+    document.getElementById('goal-desc').innerHTML = lessonHtml;
+    document.getElementById('goal-tree').style.display = 'none';
+    document.querySelectorAll('.ex-item')[currentExercise].classList.add('completed');
+    document.querySelectorAll('.ex-item')[currentExercise].querySelector('.ex-check').textContent = '✓';
+  }
+}
+
+// ── Init ────────────────────────────────────────────
+function init() {
+  tree = makeWorkspace();
+
+  // Build exercise list
+  const list = document.getElementById('exercise-list');
+  exercises.forEach((ex, i) => {
+    const div = document.createElement('div');
+    div.className = 'ex-item';
+    div.innerHTML = `<span class="ex-name">${ex.name}</span><span class="ex-check"></span>`;
+    div.onclick = () => loadExercise(i);
+    list.appendChild(div);
+  });
+
+  render();
+}
+
+init();
+</script>
+
+</body>
+</html>

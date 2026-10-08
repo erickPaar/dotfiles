@@ -1,0 +1,35 @@
+[user]
+	email = {{ .email }}
+	name = Erick Santana
+
+[filter "lfs"]
+        clean = git-lfs clean -- %f
+        smudge = git-lfs smudge -- %f
+        process = git-lfs filter-process
+        required = true
+
+[credential "helperselector"]
+        selected = manager
+[color]
+    ui = true
+{{- if not (.chezmoi.kernel.osrelease | lower | contains "microsoft") }}
+[core]
+    editor = windiff
+[diff]
+        tool = windiff
+{{- end }}
+[alias]
+    ls  = log --decorate --pretty=format:'%C(magenta)%h%Creset -%C(red)%d%Creset %s %C(bold blue)<%an>%Creset'
+    lm  = log --author=Erick --decorate --pretty=format:'%C(magenta)%h%Creset -%C(red)%d%Creset %s %C(bold blue)<%an>%Creset'
+    lf  = log --decorate --numstat --pretty=format:'%C(magenta)%h%Creset -%C(red)%d%Creset %s %C(bold blue)<%an>%Creset'
+    ld  = log --decorate --date=short --pretty=format:'%Cgreen(%cr) %C(red)%d%Creset %s %C(bold blue)<%an>%Creset' #sans hashcode
+    #ld = log --decorate --date=short --pretty=format:'%Cgreen(%cr) %C(magenta)%h%Creset  -%C(red)%d%Creset %s %C(bold blue)<%an>%Creset'
+    lg  =  log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit
+    f   = "!git ls-files | grep -i"
+[credential "https://github.com"]
+	helper = 
+	helper = !/usr/bin/gh auth git-credential
+[credential "https://gist.github.com"]
+	helper = 
+	helper = !/usr/bin/gh auth git-credential
+

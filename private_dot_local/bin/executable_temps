@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# temps — show hardware temperatures from the kernel's thermal zones.
+#
+# Reads /sys/class/thermal/thermal_zone*/{type,temp}. Values in sysfs are
+# millidegrees Celsius. Zone names are firmware-specific: friendly labels
+# below match Erick's laptop (Intel DPTF); unknown zones fall back to the
+# raw name so this still works on any Linux machine.
+
+set -euo pipefail
+
+friendly_name() {
+  case "$1" in
+    x86_pkg_temp) echo "CPU package";;
+    TCPU)         echo "CPU (ACPI)";;
+    TCPU_PCI)     echo "CPU (PCI)";;
+    T261)         echo "Board sensor 1";;
+    T262)         echo "Board sensor 2";;
+    Q603)         echo "Chassis";;
+    INT3400*)     echo "Thermal policy (virtual)";;
+    *)            echo "$1";;
+  esac
+}
+
+shopt -s nullglob
+zones=(/sys/class/thermal/thermal_zone*)
+if (( ${#zones[@]} == 0 )); then
+  echo "No thermal zones found under /sys/class/thermal" >&2
+  exit 1
+fi
+
+# Emit "millidegrees<TAB>pretty line", sort hottest-first on the numeric
+# key, then drop it — names contain spaces, so sorting on the visible
+# columns is unreliable.
+for z in "${zones[@]}"; do
+  type=$(<"$z/type")
+  milli=$(<"$z/temp")
+  printf '%d\t%-25s %3d.%d°C\n' "$milli" "$(friendly_name "$type")" $(( milli / 1000 )) $(( (milli % 1000) / 100 ))
+done | sort -t$'\t' -k1,1 -rn | cut -f2-
