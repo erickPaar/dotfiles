@@ -1,0 +1,198 @@
+#!/usr/bin/env bash
+# hikari: work on the desktop's WSL from this notebook over Tailscale.
+#
+#   hikari setup [user]  one time: check Tailscale, add "Host hikari" to ~/.ssh/config, test the login
+#   hikari [session]     open (or reattach) a zellij session on the desktop, default "main"
+#   hikari ls            list the desktop's zellij sessions
+#   hikari paste         send the image (or files) on this notebook's clipboard to the desktop's
+#                        ~/inbox, and put the path(s) on the clipboard to paste into Claude there
+#   hikari status        is the desktop reachable?
+#   hikari tunnel PORT   make the desktop's localhost:PORT available here as localhost:PORT
+#
+# The desktop needs Tailscale inside its Ubuntu first:
+#   curl -fsSL https://tailscale.com/install.sh | sh && sudo tailscale up --ssh --hostname hikari-wsl
+# Set HIKARI_HOST to use a different Tailscale machine name.
+set -euo pipefail
+
+host="${HIKARI_HOST:-hikari-wsl}"
+alias_name="hikari"
+ssh_config="$HOME/.ssh/config"
+begin="# >>> hikari (managed by ~/.local/bin/hikari) >>>"
+end="# <<< hikari <<<"
+
+tailscale_cli() {
+  if command -v tailscale >/dev/null; then
+    tailscale "$@"
+  elif [ -x "/mnt/c/Program Files/Tailscale/tailscale.exe" ]; then
+    "/mnt/c/Program Files/Tailscale/tailscale.exe" "$@" | tr -d '\r'
+  else
+    echo "Tailscale not found on this computer. Install it from https://tailscale.com/download" >&2
+    return 1
+  fi
+}
+
+# Prints "online", "offline" or "missing" for the desktop's Tailscale machine.
+peer_state() {
+  tailscale_cli status --json | python3 -c '
+import json, sys
+host = sys.argv[1].lower()
+peers = json.load(sys.stdin).get("Peer") or {}
+for p in peers.values():
+    if p.get("HostName", "").lower() == host or p.get("DNSName", "").lower().startswith(host + "."):
+        print("online" if p.get("Online") else "offline")
+        break
+else:
+    print("missing")
+' "$host"
+}
+
+require_online() {
+  case "$(peer_state)" in
+    online) ;;
+    offline)
+      echo "$host is on your tailnet but offline. Is the desktop awake, and is its WSL running?" >&2
+      exit 1 ;;
+    *)
+      echo "$host is not on your tailnet yet. On the desktop, in Ubuntu, run:" >&2
+      echo "  curl -fsSL https://tailscale.com/install.sh | sh" >&2
+      echo "  sudo tailscale up --ssh --hostname $host" >&2
+      exit 1 ;;
+  esac
+}
+
+cmd_setup() {
+  local user="${1:-}"
+  require_online
+  if [ -z "$user" ]; then
+    read -r -p "Your Linux user name on the desktop [$USER]: " user
+    user="${user:-$USER}"
+  fi
+
+  mkdir -p "$HOME/.ssh" && chmod 700 "$HOME/.ssh"
+  touch "$ssh_config" && chmod 600 "$ssh_config"
+  # Replace our block if it is there, keep everything else in the file as it is
+  # (minus trailing blank lines, so running setup again does not pile them up).
+  local tmp
+  tmp=$(mktemp)
+  awk -v b="$begin" -v e="$end" '
+    $0 == b { skip = 1; next }
+    skip    { if ($0 == e) skip = 0; next }
+    /^$/    { blank++; next }
+            { while (blank > 0) { print ""; blank-- } print }
+  ' "$ssh_config" > "$tmp"
+  {
+    cat "$tmp"
+    [ -s "$tmp" ] && echo
+    echo "$begin"
+    echo "Host $alias_name"
+    echo "  HostName $host"
+    echo "  User $user"
+    echo "  # The notebook's Wi-Fi drops sometimes: ssh gives up on a dead link after 3 missed checks (90 s)."
+    echo "  ServerAliveInterval 30"
+    echo "$end"
+  } > "$ssh_config"
+  rm -f "$tmp"
+  echo "Added \"Host $alias_name\" to $ssh_config (user $user, machine $host)."
+
+  echo "Testing the login. The first time, Tailscale may ask you to approve it in the browser."
+  if ssh -o ConnectTimeout=15 "$alias_name" "bash -lc 'echo \"Logged in to \$(hostname) as \$(whoami)\"; command -v zellij >/dev/null || echo \"Note: zellij is not installed there; hikari falls back to tmux.\"'"; then
+    echo "Done. Run \"hikari\" to start working on the desktop."
+  else
+    echo "Login failed. Check the user name, and that the desktop ran \"sudo tailscale up --ssh\"." >&2
+    exit 1
+  fi
+}
+
+cmd_connect() {
+  local session="${1:-main}"
+  [[ $session =~ ^[A-Za-z0-9._-]+$ ]] || { echo "hikari: a session name uses only letters, digits, '.', '_' and '-'" >&2; exit 2; }
+  require_online
+  if [ -n "${ZELLIJ:-}" ]; then
+    echo "You're inside zellij on this notebook: press Ctrl+g first so your keys reach the desktop's zellij (Ctrl+g again unlocks)." >&2
+  fi
+  # zellij keeps the session alive on the desktop when the notebook's Wi-Fi drops; run "hikari" again
+  # to get back. A login shell, because zellij is in ~/.local/bin there. Without zellij: tmux, then a shell.
+  ssh -t "$alias_name" "bash -lc 'if command -v zellij >/dev/null; then exec zellij attach --create $session;
+    elif command -v tmux >/dev/null; then exec tmux new -A -s $session; else exec \$SHELL -l; fi'"
+}
+
+# Image paste can't reach a Claude session on the desktop: it reads the desktop's clipboard, and
+# SSH only carries text. So copy the clipboard's content there as files and hand back their paths.
+cmd_paste() {
+  local ps="/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe"
+  [ -x "$ps" ] || { echo "hikari paste needs Windows' PowerShell (it reads the Windows clipboard)." >&2; exit 1; }
+  require_online
+  local stage stamp
+  stage=$(mktemp -d)
+  local src=""
+  trap 'rm -rf "${stage:-}" "${src:-}"' EXIT
+  stamp=$(date +%Y%m%d-%H%M%S)
+  # PowerShell saves a clipboard image as a PNG, or lists files copied in Explorer, into a Windows
+  # temp folder; WSL then reads them from /mnt/c.
+  local win_dir out
+  win_dir=$("$ps" -NoProfile -Command '[IO.Path]::GetTempPath()' | tr -d '\r')"hikari-paste-$stamp"
+  out=$("$ps" -NoProfile -Command "
+    Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+    New-Item -ItemType Directory -Force -Path '$win_dir' | Out-Null
+    if ([Windows.Forms.Clipboard]::ContainsImage()) {
+      [Windows.Forms.Clipboard]::GetImage().Save('$win_dir\\clip-$stamp.png', [Drawing.Imaging.ImageFormat]::Png)
+      'image'
+    } elseif ([Windows.Forms.Clipboard]::ContainsFileDropList()) {
+      foreach (\$f in [Windows.Forms.Clipboard]::GetFileDropList()) { if (Test-Path -PathType Leaf \$f) { Copy-Item -LiteralPath \$f -Destination '$win_dir' } }
+      'files'
+    } else { 'empty' }" | tr -d '\r')
+  : # src is declared above, for the cleanup trap
+  src=$(wslpath -u "$win_dir")
+  if [ "$out" = empty ] || [ -z "$(ls -A "$src" 2>/dev/null)" ]; then
+    rm -rf "$src"
+    echo "Nothing to send: copy an image (Win+Shift+S) or files (Ctrl+C in Explorer) first." >&2
+    exit 1
+  fi
+  local remote_dir
+  remote_dir=$(ssh "$alias_name" 'mkdir -p ~/inbox && cd ~/inbox && pwd')
+  # Explorer files keep their names, with the time in front so nothing in the inbox is overwritten.
+  local f name paths=()
+  for f in "$src"/*; do
+    name=$(basename "$f")
+    [ "$out" = files ] && name="$stamp-$name"
+    cp -- "$f" "$stage/$name"
+    paths+=("$remote_dir/$name")
+  done
+  rm -rf "$src"
+  scp -q -- "$stage"/* "$alias_name:$remote_dir/" || { echo "Copy to the desktop failed." >&2; exit 1; }
+  printf '%s\n' "${paths[@]}"
+  # The paths replace the image on the clipboard: paste them into the desktop's Claude session.
+  printf '%s' "${paths[*]}" | /mnt/c/Windows/System32/clip.exe
+  echo "Sent to the desktop; the path is on your clipboard. Paste it into Claude there." >&2
+}
+
+cmd_ls() {
+  require_online
+  ssh "$alias_name" "bash -lc 'zellij list-sessions --no-formatting'"
+}
+
+cmd_status() {
+  local state
+  state=$(peer_state)
+  echo "$host: $state"
+  if [ "$state" = online ]; then
+    tailscale_cli ping -c 1 "$host" || true
+  fi
+}
+
+cmd_tunnel() {
+  local port="${1:?usage: hikari tunnel PORT}"
+  require_online
+  echo "localhost:$port here now reaches localhost:$port on the desktop. Press Ctrl-C to stop."
+  ssh -N -L "$port:localhost:$port" "$alias_name"
+}
+
+case "${1:-}" in
+  setup)  shift; cmd_setup "$@" ;;
+  status) cmd_status ;;
+  ls)     cmd_ls ;;
+  paste)  cmd_paste ;;
+  tunnel) shift; cmd_tunnel "$@" ;;
+  -h|--help|help) sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//' ;;
+  *)      cmd_connect "$@" ;;
+esac
