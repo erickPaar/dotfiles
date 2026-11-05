@@ -68,9 +68,11 @@ op item get 'Bash Secrets' --vault=Dev --format=json \
 - `.ideavimrc` - IdeaVim plugin configuration for IntelliJ IDEA
 - `.wezterm.lua` - WezTerm terminal configuration
 - `.config/starship.toml` - Starship shell prompt (see below)
+- `.local/bin/hikari` - Use the desktop ("hikari") as a server over Tailscale: zellij sessions,
+  Claude Code, sending screenshots to it (`hikari paste`). Guide: [docs/hikari.md](docs/hikari.md)
 
 > **Neovim** is *not* tracked here — it lives in its own repo at
-> [`erickZatlas/neovim-config`](https://github.com/erickZatlas/neovim-config)
+> [`erickPaar/neovim-config`](https://github.com/erickPaar/neovim-config)
 > (cloned to `~/.config/nvim`). Kept separate because its Lazy `lazy-lock.json`
 > lifecycle and nested git repo don't play well inside chezmoi.
 

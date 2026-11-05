@@ -1,4 +1,6 @@
 README.md
+docs
+docs/**
 
 {{- if .chezmoi.kernel.osrelease | lower | contains "microsoft" }}
 # WSL: no X11 desktop session, and WezTerm runs on the Windows side
