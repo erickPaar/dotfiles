@@ -17,6 +17,12 @@
     editor = windiff
 [diff]
         tool = windiff
+{{- else }}
+[core]
+    editor = vim
+    autocrlf = input
+[diff]
+    tool = vimdiff
 {{- end }}
 [alias]
     ls  = log --decorate --pretty=format:'%C(magenta)%h%Creset -%C(red)%d%Creset %s %C(bold blue)<%an>%Creset'
@@ -26,6 +32,8 @@
     #ld = log --decorate --date=short --pretty=format:'%Cgreen(%cr) %C(magenta)%h%Creset  -%C(red)%d%Creset %s %C(bold blue)<%an>%Creset'
     lg  =  log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit
     f   = "!git ls-files | grep -i"
+    s   = "!git show --pretty='format:' --name-only $1"
+    dv  = difftool -t vimdiff -y
 [credential "https://github.com"]
 	helper = 
 	helper = !/usr/bin/gh auth git-credential

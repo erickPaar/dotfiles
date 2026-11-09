@@ -4,7 +4,7 @@
 # Inserts a blank line between shell prompts
 add_newline = true
 
-command_timeout = 1000          # ms — survives slower git on large repos
+command_timeout = 2000          # ms — slow git on large repos, and `go version` on a cold WSL start
 scan_timeout = 30
 
 format = """

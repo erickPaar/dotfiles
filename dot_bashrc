@@ -127,3 +127,6 @@ export SDKMAN_DIR="$HOME/.sdkman"
 
 # opencode
 [ -d "$HOME/.opencode/bin" ] && export PATH="$HOME/.opencode/bin:$PATH"
+
+# This machine's own setup and secrets (not in the dotfiles repo; keep it chmod 600)
+[ -f "$HOME/.bashrc.local" ] && . "$HOME/.bashrc.local"

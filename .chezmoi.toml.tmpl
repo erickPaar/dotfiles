@@ -1,3 +1,7 @@
 {{- $email := promptStringOnce . "email" "Git email for this machine" -}}
+{{- $opSecrets := true -}}
+{{- if hasKey . "opSecrets" }}{{ $opSecrets = .opSecrets }}{{ end -}}
 [data]
     email = {{ $email | quote }}
+    # Load secrets from 1Password in every new shell (bash/.exports.sh). false on machines reached over SSH.
+    opSecrets = {{ $opSecrets }}

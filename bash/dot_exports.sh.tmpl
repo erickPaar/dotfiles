@@ -38,9 +38,14 @@ load_secrets() {
   [[ -f "$cache" ]] && source "$cache"
 }
 
+{{- if or (not (hasKey . "opSecrets")) .opSecrets }}
 if command -v op &>/dev/null || [[ -f "$_OP_CACHE" ]]; then
   load_secrets
 fi
+{{- else }}
+# opSecrets = false in this machine's chezmoi config: no automatic 1Password load at shell start
+# (nobody may be there to approve it, e.g. when this machine is reached over SSH). Run load_secrets by hand.
+{{- end }}
 
 [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
 
