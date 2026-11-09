@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+# zellij-tab-state — show a Claude Code session's state in its zellij tab name.
+# Called from Claude Code hooks (~/.claude/settings.json). Adapted from czw's `mark`
+# (github.com/erickPaar/claude-zellij-workspace), without the rest of czw.
+#
+#   zellij-tab-state working     "◐ name"  Claude is working
+#   zellij-tab-state attention   "● name"  needs you: a permission prompt or a question (rings the bell)
+#   zellij-tab-state done        "✓ name"  finished: your turn
+#   zellij-tab-state unblock     "● name" -> "◐ name" (a tool ran, so the prompt was answered)
+#   zellij-tab-state clear       "name"    (session started or ended)
+#
+# Also writes ~/.cache/zellij-tab-state/bar, the "● 1  ✓ 2" summary the zjstatus bar shows.
+# Outside zellij it does nothing. Never fails the hook.
+set -uo pipefail
+want="${1:-}"
+[[ -n "${ZELLIJ_PANE_ID:-}" && -n "${ZELLIJ_SESSION_NAME:-}" ]] || exit 0
+
+case "$want" in
+  working) marker="◐ " ;;
+  attention) marker="● " ;;
+  done) marker="✓ " ;;
+  clear|unblock) marker="" ;;
+  *) echo "usage: zellij-tab-state working|attention|done|unblock|clear" >&2; exit 0 ;;
+esac
+
+cache="${XDG_CACHE_HOME:-$HOME/.cache}/zellij-tab-state"
+mkdir -p "$cache"
+
+# This pane's tab, plus every tab's name (for the bar summary), in one zellij call.
+panes=$(timeout 3 zellij action list-panes --tab --json 2>/dev/null) || exit 0
+read -r tab_id tab_name < <(python3 -c '
+import json, sys
+for p in json.loads(sys.argv[2]):
+    if not p.get("is_plugin") and str(p.get("id")) == sys.argv[1]:
+        print(p["tab_id"], p["tab_name"]); break
+' "$ZELLIJ_PANE_ID" "$panes") || exit 0
+[[ -n "${tab_id:-}" ]] || exit 0
+
+base="$tab_name"
+for m in "◐ " "● " "✓ " "○ "; do base="${base#"$m"}"; done
+if [[ "$want" == unblock ]]; then
+  [[ "$tab_name" == "● "* ]] || exit 0
+  marker="◐ "
+fi
+new="$marker$base"
+[[ "$new" == "$tab_name" ]] || timeout 3 zellij action rename-tab --tab-id "$tab_id" "$new" >/dev/null 2>&1 || true
+
+# A session that needs you rings the bell in its own pane; Windows Terminal can flash the taskbar.
+if [[ "$want" == attention && "$new" != "$tab_name" ]]; then
+  pid=$PPID
+  for _ in 1 2 3 4 5 6; do
+    tty=$(ps -o tty= -p "$pid" 2>/dev/null | tr -d ' ')
+    if [[ -n "$tty" && "$tty" != "?" ]]; then printf '\a' > "/dev/$tty" 2>/dev/null; break; fi
+    pid=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')
+    [[ -n "$pid" && "$pid" != 1 ]] || break
+  done
+fi
+
+# Bar summary from all tab names, with this tab's new name.
+python3 - "$panes" "$tab_id" "$new" > "$cache/bar.part" <<'EOF' && mv "$cache/bar.part" "$cache/bar"
+import json, sys
+panes, my_tab, my_name = json.loads(sys.argv[1]), sys.argv[2], sys.argv[3]
+names = {str(p["tab_id"]): p["tab_name"] for p in panes if "tab_id" in p}
+names[my_tab] = my_name
+need = sum(n.startswith("● ") for n in names.values())
+done = sum(n.startswith("✓ ") for n in names.values())
+out = ""
+if need: out += f"#[fg=#11111b,bg=#f38ba8,bold] ● {need} needs you #[bg=#181825] "
+if done: out += f"#[fg=#a6e3a1,bg=#181825,bold]✓ {done} done "
+print(out, end="")
+EOF
+exit 0

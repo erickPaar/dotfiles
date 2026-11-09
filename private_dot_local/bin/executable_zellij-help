@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# zellij-help — the key guide, opened in a floating pane by Alt / (or Alt g then ?).
+# Matches ~/.config/zellij/config.kdl. Any key closes it.
+b=$'\e[1m'; d=$'\e[2m'; r=$'\e[0m'
+k=$'\e[1;38;2;137;180;250m'   # keys: blue
+h=$'\e[1;38;2;250;179;135m'   # headings: peach
+g=$'\e[38;2;166;227;161m'     # green
+y=$'\e[38;2;249;226;175m'     # yellow
+m=$'\e[38;2;243;139;168m'     # red
+key() { printf "  ${k}%-12s${r} %s\n" "$1" "$2"; }
+
+clear
+cat <<EOF
+
+  ${b}Zellij on hikari${r}  ${d}· normally every key goes to Claude (locked mode)${r}
+
+  ${h}Anytime${r}
+EOF
+key "Alt 1 … 9"  "go to tab 1 … 9 (the number before each tab name)"
+key "Alt 0"      "back to the previous tab"
+key "Alt h / l"  "move to the pane or tab on the left / right"
+key "Alt g"      "command mode: press one of the keys below, then it locks again"
+key "Alt /"      "this guide"
+
+printf "\n  ${h}Command mode${r}  ${d}(Alt g, then …)${r}\n"
+key "t"          "tabs   →  n new · r rename · x close · h/l previous/next"
+key "p"          "panes  →  r split right · d split down · x close · f fullscreen · w floating"
+key "s"          "scroll →  ↑↓ PgUp/PgDn · s search · e open in editor · Ctrl c bottom"
+key "/"          "search the scrollback"
+key "e"          "open the scrollback in your editor"
+key "f"          "fullscreen the current pane (again to undo)"
+key "o"          "session →  d detach · w list of sessions"
+key "d"          "detach: leave Zellij, everything keeps running"
+key "Esc"        "cancel, back to locked"
+
+printf "\n  ${h}Tab markers${r}\n"
+printf "  ${y}◐${r} working     ${m}●${r} needs you (the taskbar flashes)     ${g}✓${r} finished, your turn\n"
+
+printf "\n  ${h}Mouse${r}\n"
+printf "  click a tab to open it · wheel scrolls · ${b}Shift${r}+drag selects text to copy\n"
+
+printf "\n  ${h}Getting back in${r}\n"
+printf "  here:          ${k}zellij attach main${r}\n"
+printf "  from laptop:   ${k}hikari${r}   ${d}(or: ssh ersantana@hikari-wsl, then zellij attach main)${r}\n"
+
+printf "\n  ${d}Press any key to close${r}"
+read -rsn1

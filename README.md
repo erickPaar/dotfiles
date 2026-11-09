@@ -90,14 +90,46 @@ Notable settings:
 - Uses ANSI color names, so it adapts to the active WezTerm theme rather than hard-coded hex
 
 ### Terminal multiplexer (Zellij)
-- `.config/zellij/config.kdl` — main config (theme, persistence, keybind overrides)
+- `.config/zellij/config.kdl` — main config (theme, persistence, keys). A template: the laptop keeps
+  `copy_command "xclip …"`, the desktop (hikari) copies through the terminal (OSC 52)
+- `.config/zellij/layouts/hikari.kdl` — default layout: one [zjstatus](https://github.com/dj95/zjstatus) bar at the top
 - `.config/zellij/layouts/dev.kdl` — dev layout (editor + shell + logs)
+- `.config/zellij/plugins/zjstatus.wasm` — fetched by chezmoi (`.chezmoiexternal.toml`, pinned v0.25.0, checksum-verified);
+  `run_onchange_after_zellij-permissions.sh` grants its permissions so the bar never waits on a prompt
+- `.local/bin/zellij-help` — the key guide, opened by `Alt /`
+- `.local/bin/zellij-tab-state` — shows each Claude Code session's state in its tab name (hooks below)
 
-Keybind overrides vs. zellij defaults:
-- `Ctrl+P` → unbound (so nvim's `<C-p>` reaches the editor); PANE mode on `Alt+p`
-- `Ctrl+O` → unbound (so nvim's `<C-o>` jumplist reaches the editor); SESSION mode on `Alt+o`
-- `Alt+h` / `Alt+l` → zellij tab prev/next (overrides default MoveFocusOrTab; that behavior moves to `Alt+arrow`)
-- `Ctrl+H` / `Ctrl+L` → pass through to nvim window-direction and bash backspace/clear-screen
+Keys and bar adapted from [claude-zellij-workspace](https://github.com/erickPaar/claude-zellij-workspace), without czw.
+
+**Locked is the resting mode**: every key goes to the program inside (Claude Code, nvim). Only `Alt` keys are zellij's:
+
+| Keys | Action |
+|---|---|
+| `Alt 1` … `Alt 9` | Go to tab 1 … 9 (the number in the bar) |
+| `Alt 0` | Previous tab |
+| `Alt h` / `Alt l` | Pane or tab on the left / right |
+| `Alt g` | Command mode: one key, then locked again (`t` tabs, `p` panes, `s` scroll, `/` search, `e` scrollback in editor, `f` fullscreen, `o` session, `d` detach, `?` guide, `Esc`) |
+| `Alt /` | The key guide, in a floating pane |
+
+The bar (top): the mode on the left, with that mode's keys; the tabs centered; on the right, how many
+sessions need you and are done, the session and the clock. Needs a Nerd Font in the terminal (MesloLGS NF).
+
+**Claude Code tab markers**: a tab shows `◐ name` while Claude works, `● name` when it needs you (a permission
+prompt or a question; it also rings the bell, which Windows Terminal can turn into a taskbar flash with
+`"bellStyle": ["window", "taskbar"]`), and `✓ name` when it's done. Add to the `hooks` in `~/.claude/settings.json`:
+
+```json
+"SessionStart":     [{ "hooks": [{ "type": "command", "command": "\"$HOME/.local/bin/zellij-tab-state\" clear 2>/dev/null || true", "timeout": 5 }] }],
+"UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "\"$HOME/.local/bin/zellij-tab-state\" working 2>/dev/null || true", "timeout": 5 }] }],
+"PostToolUse":      [{ "matcher": "*", "hooks": [{ "type": "command", "command": "\"$HOME/.local/bin/zellij-tab-state\" unblock 2>/dev/null || true", "timeout": 5, "async": true }] }],
+"Notification":     [{ "hooks": [{ "type": "command", "command": "\"$HOME/.local/bin/zellij-tab-state\" attention 2>/dev/null || true", "timeout": 5 }] }],
+"Stop":             [{ "hooks": [{ "type": "command", "command": "\"$HOME/.local/bin/zellij-tab-state\" done 2>/dev/null || true", "timeout": 5 }] }],
+"SessionEnd":       [{ "hooks": [{ "type": "command", "command": "\"$HOME/.local/bin/zellij-tab-state\" clear 2>/dev/null || true", "timeout": 5 }] }]
+```
+
+Changing an existing session to the new bar: a running tab keeps the bars it was created with, and
+`zellij action override-layout` can drop panes when a session has several tabs. Start the session fresh
+instead (`zellij delete-session NAME --force`, then `zellij attach -c NAME`).
 
 ### i3 Window Manager
 Central configs and recovery scripts for a bulletproof i3 setup:

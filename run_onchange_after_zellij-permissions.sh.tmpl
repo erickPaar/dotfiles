@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Grant zjstatus its zellij permissions up front. Otherwise it asks inside the one-line bar,
+# where the prompt is easy to miss and the bar stays blank until answered.
+set -euo pipefail
+plugin="{{ .chezmoi.homeDir }}/.config/zellij/plugins/zjstatus.wasm"
+perms="${XDG_CACHE_HOME:-$HOME/.cache}/zellij/permissions.kdl"
+grep -qF "\"$plugin\"" "$perms" 2>/dev/null && exit 0
+mkdir -p "$(dirname "$perms")"
+printf '"%s" {\n    ReadApplicationState\n    ChangeApplicationState\n    RunCommands\n}\n' "$plugin" >> "$perms"
+echo "zellij: granted zjstatus its permissions"

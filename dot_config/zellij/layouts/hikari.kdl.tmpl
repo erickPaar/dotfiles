@@ -1,0 +1,61 @@
+// hikari: every tab gets one zjstatus bar at the top (Catppuccin Mocha); no bottom bar.
+// Adapted from claude-zellij-workspace's share/bar.kdl. Needs a Nerd Font (MesloLGS NF) in the terminal.
+//
+//   left:   mode pill (locked = keys go to Claude; Alt g commands, Alt / guide)
+//   center: tabs; the number is the Alt+N key; ◐ working, ● needs you, ✓ your turn
+//   right:  "● N needs you  ✓ N done" (from zellij-tab-state), notifications, session, clock
+layout {
+    default_tab_template {
+        pane size=1 borderless=true {
+            plugin location="file:{{ .chezmoi.homeDir }}/.config/zellij/plugins/zjstatus.wasm" {
+                format_left   "{mode}"
+                format_center "{tabs}"
+                format_right  "{command_waiting}{notifications}#[fg=#6c7086,bg=#181825]{session}  {datetime} "
+                format_space  "#[bg=#181825]"
+                format_hide_on_overlength "true"
+                format_precedence "lrc"
+
+                hide_frame_for_single_pane "true"
+                pane_frame_style "full"
+
+                mode_locked       "#[fg=#6c7086,bg=#181825] 🔒 #[fg=#a6adc8,bg=#181825]Alt g#[fg=#6c7086,bg=#181825] commands · #[fg=#a6adc8,bg=#181825]Alt /#[fg=#6c7086,bg=#181825] guide "
+                mode_normal       "#[fg=#11111b,bg=#fab387,bold] COMMAND #[fg=#fab387,bg=#181825] t tab · p pane · s scroll · d detach · ? guide · Esc "
+                mode_pane         "#[fg=#11111b,bg=#cba6f7,bold] PANE #[fg=#cba6f7,bg=#181825] n new · r right · d down · x close · f full "
+                mode_tab          "#[fg=#11111b,bg=#cba6f7,bold] TAB #[fg=#cba6f7,bg=#181825] n new · r rename · x close · h/l move "
+                mode_resize       "#[fg=#11111b,bg=#cba6f7,bold] RESIZE "
+                mode_move         "#[fg=#11111b,bg=#cba6f7,bold] MOVE "
+                mode_scroll       "#[fg=#11111b,bg=#f9e2af,bold] SCROLL #[fg=#f9e2af,bg=#181825] s search · e editor · Esc "
+                mode_search       "#[fg=#11111b,bg=#f9e2af,bold] SEARCH #[fg=#f9e2af,bg=#181825] n next · p prev · Esc "
+                mode_enter_search "#[fg=#11111b,bg=#f9e2af,bold] SEARCH "
+                mode_session      "#[fg=#11111b,bg=#cba6f7,bold] SESSION #[fg=#cba6f7,bg=#181825] d detach · w sessions "
+                mode_rename_tab   "#[fg=#11111b,bg=#fab387,bold] RENAME TAB #[fg=#fab387,bg=#181825] type · Enter "
+                mode_rename_pane  "#[fg=#11111b,bg=#fab387,bold] RENAME PANE "
+                mode_default_to_mode "normal"
+
+                tab_normal              "#[fg=#6c7086,bg=#181825] {index} #[fg=#a6adc8,bg=#181825]{name} "
+                tab_normal_fullscreen   "#[fg=#6c7086,bg=#181825] {index} #[fg=#a6adc8,bg=#181825]{name} [full] "
+                tab_normal_sync         "#[fg=#6c7086,bg=#181825] {index} #[fg=#a6adc8,bg=#181825]{name} <> "
+                tab_active              "#[fg=#11111b,bg=#89b4fa,bold] {index} {name} "
+                tab_active_fullscreen   "#[fg=#11111b,bg=#89b4fa,bold] {index} {name} [full] "
+                tab_active_sync         "#[fg=#11111b,bg=#89b4fa,bold] {index} {name} <> "
+                tab_rename              "#[fg=#11111b,bg=#fab387,bold] {index} {name} "
+                tab_separator           "#[bg=#181825] "
+
+                // Sessions that need you / finished, written by ~/.local/bin/zellij-tab-state.
+                command_waiting_command    "cat {{ .chezmoi.homeDir }}/.cache/zellij-tab-state/bar"
+                command_waiting_format     "{stdout}"
+                command_waiting_interval   "2"
+                command_waiting_rendermode "dynamic"
+
+                notification_format_unread           "#[fg=#f9e2af,bg=#181825,bold] 󰂞 {message} "
+                notification_format_no_notifications ""
+                notification_show_interval           "10"
+
+                datetime          "#[fg=#a6adc8,bg=#181825]{format}"
+                datetime_format   "%H:%M"
+                datetime_timezone "America/Sao_Paulo"
+            }
+        }
+        children
+    }
+}

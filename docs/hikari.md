@@ -32,19 +32,21 @@ If the laptop's Wi-Fi drops, nothing on the desktop stops. Run `hikari` again on
 
 ### zellij keys
 
-Both machines use this repo's zellij config (`dot_config/zellij/config.kdl`), so the keys are the same on each:
+Both machines use this repo's zellij config (`dot_config/zellij/config.kdl.tmpl`), so the keys are the same on each. Every key goes to the program inside (Claude Code) except these:
 
 | Keys | Action |
 |---|---|
-| `Alt+o`, then `d` | Detach (leave the session running) |
-| `Ctrl+t`, then `n` | New tab |
-| `Alt+h` / `Alt+l` | Previous / next tab |
-| `Alt+p`, then `r` / `d` | Split pane right / down |
-| `Alt+arrow` | Move between panes |
-| `Ctrl+s` | Scroll mode (`j`/`k`, `PgUp`/`PgDn`, `Esc` to leave) |
-| `Ctrl+g` | Lock: pass every key through to the program inside |
+| `Alt /` | Key guide (floating; any key closes it) |
+| `Alt 1` … `Alt 9` | Go to that tab (the number in the bar) |
+| `Alt h` / `Alt l` | Pane or tab left / right |
+| `Alt g`, then `d` | Detach (leave the session running) |
+| `Alt g`, then `t`, `n` | New tab (`r` rename, `x` close) |
+| `Alt g`, then `p`, `r` / `d` | Split pane right / down |
+| `Alt g`, then `s` | Scroll mode (`j`/`k`, `PgUp`/`PgDn`, `s` search, `Esc` to leave) |
 
-> **zellij inside zellij.** When the laptop is itself in zellij, the laptop's zellij catches these keys first. Press `Ctrl+g` on the laptop to lock it, and your keys then reach the desktop's zellij. Press `Ctrl+g` again to unlock. `hikari` reminds you when it notices this.
+The bar at the top shows the mode and its keys on the left, the tabs in the middle, and on the right how many Claude sessions need you (`●`) or are done (`✓`). The same markers appear in the tab names, with `◐` while Claude works.
+
+> **zellij inside zellij.** If you run `hikari` from a laptop terminal that is itself in zellij, the laptop's zellij catches the `Alt` keys first. Run `hikari` from a terminal tab that isn't in zellij.
 
 The desktop's copy of the config leaves out `copy_command`. Text you copy in its zellij then travels through the terminal (OSC 52) to the laptop's clipboard; `xclip` on the desktop couldn't reach it over SSH.
 
@@ -91,7 +93,7 @@ Keep WSL running without a window open: add a Windows Task Scheduler task that r
 hikari setup <your-linux-user-on-the-desktop>
 ```
 
-That adds a `Host hikari` entry to `~/.ssh/config` and tests the login. Copy this repo's `dot_config/zellij/config.kdl` and `layouts/` to the desktop's `~/.config/zellij/`, without the `copy_command` line, so both machines share the keys.
+That adds a `Host hikari` entry to `~/.ssh/config` and tests the login. Apply this repo on the desktop too (`chezmoi init --apply erickPaar/dotfiles`), so both machines share the zellij config, bar and keys. The config template leaves out `copy_command` on the desktop by itself.
 
 ---
 
@@ -102,5 +104,5 @@ That adds a `Host hikari` entry to `~/.ssh/config` and tests the login. Copy thi
 | `hikari-wsl is offline` | The desktop is asleep or off, or its WSL isn't running. Connect with Remote Desktop to check, or wake the PC. |
 | `hikari-wsl is not on your tailnet` | Run the desktop setup above. |
 | `Tailscale SSH requires an additional check` and a link | Open the link and approve. The command continues on its own. These approvals come from the SSH rule's `check` action in the tailnet's access controls. A longer `checkPeriod` makes them rarer. |
-| After the desktop restarts | `hikari` opens a fresh `main`. zellij restores the session's tabs and panes (`session_serialization`), but programs inside start fresh, so start `claude` again. |
+| After the desktop restarts | `hikari` reopens `main`. zellij restores the tabs and panes (`session_serialization`), and each pane's command waits for `Enter` before starting again. |
 | A frozen terminal after a Wi-Fi drop | Wait about 90 seconds (`ServerAliveInterval 30`), or press `Enter`, `~`, `.` to close it at once. Then run `hikari`. |
