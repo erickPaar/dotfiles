@@ -7,6 +7,8 @@
 #   hikari paste         send the image (or files) on this notebook's clipboard to the desktop's
 #                        ~/inbox, and put the path(s) on the clipboard to paste into Claude there
 #   hikari status        is the desktop reachable?
+#   hikari watch         follow the desktop starting up (after a power cut or restart), stage by
+#                        stage, until Ubuntu and its containers are all up; Ctrl+C stops watching
 #   hikari tunnel PORT   make the desktop's localhost:PORT available here as localhost:PORT
 #
 # The desktop needs Tailscale inside its Ubuntu first:
@@ -31,7 +33,7 @@ tailscale_cli() {
   fi
 }
 
-# Prints "online", "offline" or "missing" for the desktop's Tailscale machine.
+# Prints "online", "offline" or "missing" for a Tailscale machine (default: the desktop's WSL).
 peer_state() {
   tailscale_cli status --json | python3 -c '
 import json, sys
@@ -43,7 +45,7 @@ for p in peers.values():
         break
 else:
     print("missing")
-' "$host"
+' "${1:-$host}"
 }
 
 require_online() {
@@ -180,6 +182,54 @@ cmd_status() {
   fi
 }
 
+# Follows the desktop's startup chain and prints a line whenever a stage changes, with the clock
+# time and the time since watching began. Stops once Ubuntu reports "running" and every
+# container is up. The Windows machine's Tailscale name is HIKARI_WIN_HOST (default "hikari").
+cmd_watch() {
+  local win_host="${HIKARI_WIN_HOST:-hikari}" t0 last="" line now win wsl info
+  t0=$(date +%s)
+  echo "Watching the desktop start up; Ctrl+C stops watching (the desktop isn't affected)."
+  while true; do
+    win=$(peer_state "$win_host" 2>/dev/null || echo "unknown")
+    wsl=$(peer_state "$host" 2>/dev/null || echo "unknown")
+    info=""
+    if [ "$wsl" = online ]; then
+      # BatchMode: never wait at a prompt. If Tailscale wants a browser approval, this shows as
+      # "ssh: no answer"; run "ssh hikari" once to approve, and watching picks it up.
+      info=$(ssh -o BatchMode=yes -o ConnectTimeout=8 "$alias_name" '
+        s=$(systemctl is-system-running 2>/dev/null)
+        j=$(systemctl list-jobs --no-legend 2>/dev/null | wc -l)
+        ts=$(systemctl is-active tailscaled 2>/dev/null)
+        dk=$(systemctl is-active docker 2>/dev/null)
+        up=0; all=0; rs=0
+        if [ "$dk" = active ]; then
+          up=$(docker ps -q 2>/dev/null | wc -l); all=$(docker ps -aq 2>/dev/null | wc -l)
+          # Not settled: restarting, or up for under a minute (a crash loop looks "running" for
+          # a few seconds between crashes).
+          rs=$(docker ps --format "{{.Status}}" 2>/dev/null | grep -cE "^(Restarting|Up (Less than a second|[0-9]+ seconds))")
+        fi
+        echo "ubuntu $s (jobs $j), up since $(date -d "$(ps -o lstart= -p 1)" +%H:%M 2>/dev/null) | tailscaled $ts | docker $dk, containers $up/$all running, $rs settling"
+      ' 2>/dev/null) || info="ssh: no answer yet"
+    fi
+    line="windows tailscale: $win | ubuntu tailscale: $wsl${info:+ | $info}"
+    if [ "$line" != "$last" ]; then
+      now=$(date +%s)
+      printf '%s (+%dm%02ds)  %s\n' "$(date +%H:%M:%S)" $(( (now - t0) / 60 )) $(( (now - t0) % 60 )) "$line"
+      last=$line
+    fi
+    # Done: Ubuntu finished booting, Docker is up, and no container is stuck restarting. Containers
+    # stopped on purpose stay stopped after a reboot (restart "unless-stopped"), so they don't count.
+    if [[ $info =~ ubuntu\ (running|degraded).*docker\ active.*\ 0\ settling ]]; then
+      echo "The desktop is up."
+      [[ $info == *degraded* ]] && echo "Note: Ubuntu says 'degraded': a service failed. On the desktop: systemctl --failed"
+      ssh -o BatchMode=yes -o ConnectTimeout=8 "$alias_name" \
+        'docker ps -a --filter status=exited --filter status=created --format "  not running: {{.Names}} ({{.Status}})"' 2>/dev/null || true
+      return 0
+    fi
+    sleep 5
+  done
+}
+
 cmd_tunnel() {
   local port="${1:?usage: hikari tunnel PORT}"
   require_online
@@ -192,7 +242,8 @@ case "${1:-}" in
   status) cmd_status ;;
   ls)     cmd_ls ;;
   paste)  cmd_paste ;;
+  watch)  cmd_watch ;;
   tunnel) shift; cmd_tunnel "$@" ;;
-  -h|--help|help) sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//' ;;
+  -h|--help|help) sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//' ;;
   *)      cmd_connect "$@" ;;
 esac
